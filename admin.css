@@ -200,6 +200,57 @@ h3 {
   font-weight: 600;
 }
 
+.dashboard-form {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.dashboard-form label {
+  display: grid;
+  gap: 0.34rem;
+  font-weight: 650;
+}
+
+.dashboard-form input {
+  border: 1px solid rgba(91, 33, 182, 0.2);
+  border-radius: 12px;
+  padding: 0.74rem;
+  font: inherit;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.dashboard-form input:focus {
+  outline: 2px solid rgba(91, 33, 182, 0.25);
+}
+
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.75rem;
+}
+
+.dashboard-card {
+  border: 1px solid rgba(91, 33, 182, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 0.75rem;
+}
+
+.dashboard-label {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.dashboard-value {
+  margin: 0.35rem 0 0;
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+
 .admin-list,
 .testimonial-admin-list,
 .contact-message-list {
@@ -389,7 +440,8 @@ h3 {
 
   .admin-list,
   .testimonial-admin-list,
-  .contact-message-list {
+  .contact-message-list,
+  .dashboard-metrics {
     grid-template-columns: 1fr;
   }
 }

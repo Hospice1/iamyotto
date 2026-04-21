@@ -2,6 +2,8 @@
 const ADMIN_PROJECTS_KEY = "iamyotto_admin_projects";
 const TESTIMONIALS_KEY = "iamyotto_testimonials";
 const CONTACT_MESSAGES_KEY = "iamyotto_contact_messages";
+const DASHBOARD_PROJECT_COUNT_KEY = "iamyotto_dashboard_project_count";
+const PORTFOLIO_VISITS_KEY = "iamyotto_portfolio_visits";
 
 const INITIAL_TESTIMONIALS = [
   {
@@ -85,6 +87,7 @@ const testimonialForm = document.getElementById("testimonial-form");
 const testimonialStatus = document.getElementById("testimonial-status");
 const contactForm = document.getElementById("contact-form");
 const contactStatus = document.getElementById("contact-status");
+const proofProjectCount = document.getElementById("proof-project-count");
 
 const themeToggle = document.getElementById("theme-toggle");
 const themeMenu = document.getElementById("theme-menu");
@@ -405,6 +408,34 @@ function loadContactMessages() {
 
 function saveContactMessages(messages) {
   localStorage.setItem(CONTACT_MESSAGES_KEY, JSON.stringify(messages));
+}
+
+function loadDashboardProjectCount() {
+  const raw = Number(localStorage.getItem(DASHBOARD_PROJECT_COUNT_KEY));
+  if (!Number.isFinite(raw) || raw < 0) {
+    return 100;
+  }
+
+  return Math.floor(raw);
+}
+
+function formatProjectCountDisplay(value) {
+  const safe = Math.max(0, Math.floor(Number(value) || 0));
+  return `${safe}+`;
+}
+
+function renderProofProjectCount() {
+  if (!proofProjectCount) {
+    return;
+  }
+
+  proofProjectCount.textContent = formatProjectCountDisplay(loadDashboardProjectCount());
+}
+
+function incrementPortfolioVisits() {
+  const current = Number(localStorage.getItem(PORTFOLIO_VISITS_KEY));
+  const safeCurrent = Number.isFinite(current) && current >= 0 ? Math.floor(current) : 0;
+  localStorage.setItem(PORTFOLIO_VISITS_KEY, String(safeCurrent + 1));
 }
 
 function setupContactForm() {
@@ -1291,14 +1322,21 @@ window.addEventListener("storage", (event) => {
   if (event.key === TESTIMONIALS_KEY) {
     renderTestimonials();
   }
+
+  if (event.key === DASHBOARD_PROJECT_COUNT_KEY) {
+    renderProofProjectCount();
+  }
 });
 
 window.addEventListener("focus", () => {
   importProjects();
   renderTestimonials();
+  renderProofProjectCount();
 });
 
 window.addEventListener("DOMContentLoaded", () => {
+  incrementPortfolioVisits();
+  renderProofProjectCount();
   ensureTestimonialsSeeded();
   setupThemeSwitcher();
   setupScrollReveal();

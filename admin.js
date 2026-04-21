@@ -1,6 +1,8 @@
 ﻿const ADMIN_PROJECTS_KEY = "iamyotto_admin_projects";
 const TESTIMONIALS_KEY = "iamyotto_testimonials";
 const CONTACT_MESSAGES_KEY = "iamyotto_contact_messages";
+const DASHBOARD_PROJECT_COUNT_KEY = "iamyotto_dashboard_project_count";
+const PORTFOLIO_VISITS_KEY = "iamyotto_portfolio_visits";
 const ADMIN_SESSION_KEY = "iamyotto_admin_session";
 const ADMIN_HISTORY_KEY = "iamyotto_admin_history";
 const ADMIN_PASSWORD = "AZERTY1234";
@@ -109,6 +111,11 @@ const removeBadBtn = document.getElementById("remove-bad-testimonials");
 const contactMessagesList = document.getElementById("contact-messages-list");
 const contactMessagesStatus = document.getElementById("contact-messages-status");
 const clearContactMessagesBtn = document.getElementById("clear-contact-messages");
+const dashboardForm = document.getElementById("dashboard-form");
+const dashboardProjectCountInput = document.getElementById("dashboard-project-count");
+const dashboardVisits = document.getElementById("dashboard-visits");
+const dashboardProjectsPreview = document.getElementById("dashboard-projects-preview");
+const dashboardStatus = document.getElementById("dashboard-status");
 
 let editMediaDraft = [];
 const adminBlobUrls = new Set();
@@ -146,6 +153,7 @@ async function unlockAdmin() {
   renderHistoryList();
   renderTestimonialList();
   renderContactMessageList();
+  renderDashboardPanel();
 }
 
 function createProjectId() {
@@ -696,6 +704,49 @@ function loadContactMessages() {
 
 function saveContactMessages(messages) {
   localStorage.setItem(CONTACT_MESSAGES_KEY, JSON.stringify(messages));
+}
+
+function loadDashboardProjectCount() {
+  const raw = Number(localStorage.getItem(DASHBOARD_PROJECT_COUNT_KEY));
+  if (!Number.isFinite(raw) || raw < 0) {
+    return 100;
+  }
+
+  return Math.floor(raw);
+}
+
+function saveDashboardProjectCount(value) {
+  const safe = Math.max(0, Math.floor(Number(value) || 0));
+  localStorage.setItem(DASHBOARD_PROJECT_COUNT_KEY, String(safe));
+}
+
+function loadPortfolioVisits() {
+  const raw = Number(localStorage.getItem(PORTFOLIO_VISITS_KEY));
+  if (!Number.isFinite(raw) || raw < 0) {
+    return 0;
+  }
+
+  return Math.floor(raw);
+}
+
+function formatProjectCountDisplay(value) {
+  const safe = Math.max(0, Math.floor(Number(value) || 0));
+  return `${safe}+`;
+}
+
+function renderDashboardPanel() {
+  const projectCount = loadDashboardProjectCount();
+  const visits = loadPortfolioVisits();
+
+  if (dashboardProjectCountInput) {
+    dashboardProjectCountInput.value = String(projectCount);
+  }
+  if (dashboardVisits) {
+    dashboardVisits.textContent = visits.toLocaleString("fr-FR");
+  }
+  if (dashboardProjectsPreview) {
+    dashboardProjectsPreview.textContent = formatProjectCountDisplay(projectCount);
+  }
 }
 
 function renderContactMessageList() {
@@ -1419,6 +1470,26 @@ clearContactMessagesBtn?.addEventListener("click", () => {
   renderContactMessageList();
 });
 
+
+dashboardForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const value = Number(dashboardProjectCountInput?.value || "");
+  if (!Number.isFinite(value) || value < 0) {
+    if (dashboardStatus) {
+      dashboardStatus.textContent = "Entrez un nombre valide (0 ou plus).";
+    }
+    return;
+  }
+
+  saveDashboardProjectCount(value);
+  renderDashboardPanel();
+
+  if (dashboardStatus) {
+    dashboardStatus.textContent = "Chiffre projets mis a jour.";
+  }
+});
+
 removeBadBtn?.addEventListener("click", () => {
   const testimonials = loadTestimonials();
   const filtered = testimonials.filter((item) => !isNegativeOrAbusive(item));
@@ -1462,6 +1533,13 @@ clearAllBtn?.addEventListener("click", () => {
     statusBox.textContent = "Toutes les creations ont ete supprimees.";
   }
   renderProjectList();
+});
+
+
+window.addEventListener("storage", (event) => {
+  if (event.key === PORTFOLIO_VISITS_KEY || event.key === DASHBOARD_PROJECT_COUNT_KEY) {
+    renderDashboardPanel();
+  }
 });
 
 window.addEventListener("DOMContentLoaded", async () => {
