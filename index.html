@@ -161,7 +161,7 @@
         <a class="mail-link" href="mailto:hospiceyotto@outlook.fr">hospiceyotto@outlook.fr</a>
       </div>
 
-      <form class="contact-form" action="#" method="post">
+      <form id="contact-form" class="contact-form" action="#" method="post">
         <label>
           Nom
           <input type="text" name="name" placeholder="Votre nom" required />
@@ -174,7 +174,10 @@
           Message
           <textarea name="message" rows="5" placeholder="Parlez-moi de votre besoin" required></textarea>
         </label>
-        <button type="submit" class="btn-secondary">Envoyer</button>
+        <div class="contact-submit-row">
+          <button id="contact-submit" type="submit" class="btn-secondary">Envoyer</button>
+          <p id="contact-status" class="contact-status" aria-live="polite"></p>
+        </div>
       </form>
     </section>
   </main>

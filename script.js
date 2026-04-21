@@ -1,6 +1,7 @@
 ﻿const THEME_STORAGE_KEY = "iamyotto_theme_preference";
 const ADMIN_PROJECTS_KEY = "iamyotto_admin_projects";
 const TESTIMONIALS_KEY = "iamyotto_testimonials";
+const CONTACT_MESSAGES_KEY = "iamyotto_contact_messages";
 
 const INITIAL_TESTIMONIALS = [
   {
@@ -81,6 +82,8 @@ const testimonialsGrid = document.getElementById("testimonials-grid");
 const testimonialsToggle = document.getElementById("testimonials-toggle");
 const testimonialForm = document.getElementById("testimonial-form");
 const testimonialStatus = document.getElementById("testimonial-status");
+const contactForm = document.getElementById("contact-form");
+const contactStatus = document.getElementById("contact-status");
 
 const themeToggle = document.getElementById("theme-toggle");
 const themeMenu = document.getElementById("theme-menu");
@@ -349,6 +352,85 @@ function loadTestimonials() {
 
 function saveTestimonials(testimonials) {
   localStorage.setItem(TESTIMONIALS_KEY, JSON.stringify(testimonials));
+}
+
+function normalizeContactMessage(item) {
+  return {
+    id: String(item?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`),
+    name: String(item?.name || "").trim(),
+    email: String(item?.email || "").trim(),
+    message: String(item?.message || "").trim(),
+    createdAt: item?.createdAt || new Date().toISOString(),
+  };
+}
+
+function loadContactMessages() {
+  try {
+    const raw = localStorage.getItem(CONTACT_MESSAGES_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.map(normalizeContactMessage).filter((item) => item.name && item.email && item.message)
+      : [];
+  } catch (error) {
+    console.error("Erreur de lecture des messages contact", error);
+    return [];
+  }
+}
+
+function saveContactMessages(messages) {
+  localStorage.setItem(CONTACT_MESSAGES_KEY, JSON.stringify(messages));
+}
+
+function setupContactForm() {
+  if (!(contactForm instanceof HTMLFormElement) || !(contactStatus instanceof HTMLElement)) {
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("contact") === "success") {
+    contactStatus.textContent = "Envoi reussi";
+    contactStatus.classList.add("is-success");
+
+    params.delete("contact");
+    const query = params.toString();
+    const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash || "#contact"}`;
+    window.history.replaceState(null, "", nextUrl);
+  }
+
+  contactForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const data = new FormData(contactForm);
+    const name = String(data.get("name") || "").trim();
+    const email = String(data.get("email") || "").trim();
+    const message = String(data.get("message") || "").trim();
+
+    if (!name || !email || !message) {
+      contactStatus.textContent = "Merci de remplir tous les champs.";
+      contactStatus.classList.remove("is-success");
+      return;
+    }
+
+    const messages = loadContactMessages();
+    messages.unshift(
+      normalizeContactMessage({
+        name,
+        email,
+        message,
+      })
+    );
+
+    saveContactMessages(messages);
+
+    const paramsSubmit = new URLSearchParams(window.location.search);
+    paramsSubmit.set("contact", "success");
+    const query = paramsSubmit.toString();
+    window.location.href = `${window.location.pathname}?${query}#contact`;
+  });
 }
 
 function escapeHTML(value) {
@@ -1173,6 +1255,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupScrollReveal();
   setupActiveNav();
   setupTestimonialForm();
+  setupContactForm();
   renderTestimonials();
   importProjects();
 });

@@ -1,5 +1,6 @@
 ﻿const ADMIN_PROJECTS_KEY = "iamyotto_admin_projects";
 const TESTIMONIALS_KEY = "iamyotto_testimonials";
+const CONTACT_MESSAGES_KEY = "iamyotto_contact_messages";
 const ADMIN_SESSION_KEY = "iamyotto_admin_session";
 const ADMIN_HISTORY_KEY = "iamyotto_admin_history";
 const ADMIN_PASSWORD = "AZERTY1234";
@@ -105,6 +106,9 @@ const clearHistoryBtn = document.getElementById("clear-history");
 const testimonialList = document.getElementById("testimonial-list");
 const testimonialStatus = document.getElementById("testimonial-status");
 const removeBadBtn = document.getElementById("remove-bad-testimonials");
+const contactMessagesList = document.getElementById("contact-messages-list");
+const contactMessagesStatus = document.getElementById("contact-messages-status");
+const clearContactMessagesBtn = document.getElementById("clear-contact-messages");
 
 let editMediaDraft = [];
 const adminBlobUrls = new Set();
@@ -141,6 +145,7 @@ async function unlockAdmin() {
   renderProjectList();
   renderHistoryList();
   renderTestimonialList();
+  renderContactMessageList();
 }
 
 function createProjectId() {
@@ -645,6 +650,68 @@ function loadTestimonials() {
 
 function saveTestimonials(testimonials) {
   localStorage.setItem(TESTIMONIALS_KEY, JSON.stringify(testimonials));
+}
+
+function normalizeContactMessage(item) {
+  return {
+    id: String(item?.id || ""),
+    name: String(item?.name || "").trim(),
+    email: String(item?.email || "").trim(),
+    message: String(item?.message || "").trim(),
+    createdAt: item?.createdAt || new Date().toISOString(),
+  };
+}
+
+function loadContactMessages() {
+  try {
+    const raw = localStorage.getItem(CONTACT_MESSAGES_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.map(normalizeContactMessage).filter((item) => item.name && item.email && item.message)
+      : [];
+  } catch (error) {
+    console.error("Erreur lecture messages contact", error);
+    return [];
+  }
+}
+
+function saveContactMessages(messages) {
+  localStorage.setItem(CONTACT_MESSAGES_KEY, JSON.stringify(messages));
+}
+
+function renderContactMessageList() {
+  if (!contactMessagesList || !contactMessagesStatus) {
+    return;
+  }
+
+  const messages = loadContactMessages();
+  if (!messages.length) {
+    contactMessagesList.innerHTML = '<p class="admin-status">Aucun message reçu.</p>';
+    contactMessagesStatus.textContent = "Les messages envoyés depuis la section Contact apparaissent ici.";
+    return;
+  }
+
+  contactMessagesList.innerHTML = messages
+    .map((item, index) => `
+      <article class="contact-message-item">
+        <div class="contact-message-head">
+          <div>
+            <p class="contact-message-name">${escapeHTML(item.name)}</p>
+            <p class="contact-message-email">${escapeHTML(item.email)}</p>
+          </div>
+          <p class="contact-message-time">${escapeHTML(formatDateLabel(item.createdAt))}</p>
+        </div>
+        <p class="contact-message-body">${escapeHTML(item.message)}</p>
+        <button class="delete-contact-btn" type="button" data-contact-index="${index}">Supprimer</button>
+      </article>
+    `)
+    .join("");
+
+  contactMessagesStatus.textContent = `${messages.length} message(s) reçu(s).`;
 }
 
 function escapeHTML(value) {
@@ -1294,6 +1361,7 @@ clearHistoryBtn?.addEventListener("click", () => {
   renderHistoryList();
 });
 
+
 testimonialList?.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement) || !target.classList.contains("delete-testimonial-btn")) {
@@ -1312,6 +1380,28 @@ testimonialList?.addEventListener("click", (event) => {
     testimonialStatus.textContent = "Temoignage supprime.";
   }
   renderTestimonialList();
+});
+
+contactMessagesList?.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || !target.classList.contains("delete-contact-btn")) {
+    return;
+  }
+
+  const index = Number(target.dataset.contactIndex);
+  if (Number.isNaN(index)) {
+    return;
+  }
+
+  const messages = loadContactMessages();
+  messages.splice(index, 1);
+  saveContactMessages(messages);
+  renderContactMessageList();
+});
+
+clearContactMessagesBtn?.addEventListener("click", () => {
+  saveContactMessages([]);
+  renderContactMessageList();
 });
 
 removeBadBtn?.addEventListener("click", () => {

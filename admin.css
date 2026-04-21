@@ -201,7 +201,8 @@ h3 {
 }
 
 .admin-list,
-.testimonial-admin-list {
+.testimonial-admin-list,
+.contact-message-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.8rem;
@@ -254,7 +255,8 @@ h3 {
 
 .edit-btn,
 .delete-btn,
-.delete-testimonial-btn {
+.delete-testimonial-btn,
+.delete-contact-btn {
   margin-top: 0.55rem;
   border-radius: 999px;
   padding: 0.34rem 0.7rem;
@@ -269,7 +271,8 @@ h3 {
 }
 
 .delete-btn,
-.delete-testimonial-btn {
+.delete-testimonial-btn,
+.delete-contact-btn {
   border: 1px solid rgba(200, 35, 35, 0.32);
   color: #b91c1c;
 }
@@ -336,6 +339,44 @@ h3 {
   color: #b91c1c;
 }
 
+.contact-message-item {
+  border: 1px solid rgba(91, 33, 182, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 0.74rem;
+}
+
+.contact-message-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.contact-message-name {
+  margin: 0;
+  font-weight: 800;
+}
+
+.contact-message-email {
+  margin: 0.22rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.contact-message-time {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.contact-message-body {
+  margin: 0.55rem 0 0;
+  color: #363b4a;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 760px) {
   .admin-header {
     flex-direction: column;
@@ -347,7 +388,8 @@ h3 {
   }
 
   .admin-list,
-  .testimonial-admin-list {
+  .testimonial-admin-list,
+  .contact-message-list {
     grid-template-columns: 1fr;
   }
 }
@@ -448,3 +490,4 @@ h3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
