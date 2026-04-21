@@ -89,6 +89,7 @@ const testimonialForm = document.getElementById("testimonial-form");
 const testimonialStatus = document.getElementById("testimonial-status");
 const contactForm = document.getElementById("contact-form");
 const contactStatus = document.getElementById("contact-status");
+const contactSubmit = document.getElementById("contact-submit");
 const proofProjectCount = document.getElementById("proof-project-count");
 const whatsappMessage = document.getElementById("whatsapp-message");
 const whatsappMessageClose = document.getElementById("whatsapp-message-close");
@@ -104,12 +105,15 @@ const TESTIMONIAL_STEP_COUNT = 4;
 
 let visibleProjectCount = PROJECT_INITIAL_COUNT;
 let visibleTestimonialCount = TESTIMONIAL_INITIAL_COUNT;
+let projectExpanded = false;
+let testimonialExpanded = false;
 let renderedProjects = [];
 const previewIntervals = new Map();
 const touchPreviewTimeouts = new Map();
 const projectBlobUrls = new Set();
 let modalBlobUrl = "";
 let modalState = null;
+let modalAutoSlideInterval = null;
 let touchTapState = {
   cardKey: "",
   at: 0,
@@ -447,16 +451,22 @@ function setupContactForm() {
     return;
   }
 
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("contact") === "success") {
-    contactStatus.textContent = "Envoi reussi";
-    contactStatus.classList.add("is-success");
+  const setSubmitLabel = (label) => {
+    if (contactSubmit instanceof HTMLElement) {
+      contactSubmit.textContent = label;
+    }
+  };
 
-    params.delete("contact");
-    const query = params.toString();
-    const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash || "#contact"}`;
-    window.history.replaceState(null, "", nextUrl);
-  }
+  contactForm.addEventListener("input", () => {
+    if (contactStatus.classList.contains("is-success")) {
+      contactStatus.classList.remove("is-success");
+      contactStatus.textContent = "";
+    }
+
+    if (contactSubmit instanceof HTMLElement && contactSubmit.textContent.trim() === "Envoyé") {
+      contactSubmit.textContent = "Envoyer";
+    }
+  });
 
   contactForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -469,6 +479,7 @@ function setupContactForm() {
     if (!name || !email || !message) {
       contactStatus.textContent = "Merci de remplir tous les champs.";
       contactStatus.classList.remove("is-success");
+      setSubmitLabel("Envoyer");
       return;
     }
 
@@ -483,13 +494,12 @@ function setupContactForm() {
 
     saveContactMessages(messages);
 
-    const paramsSubmit = new URLSearchParams(window.location.search);
-    paramsSubmit.set("contact", "success");
-    const query = paramsSubmit.toString();
-    window.location.href = `${window.location.pathname}?${query}#contact`;
+    contactForm.reset();
+    contactStatus.textContent = "Envoi reussi";
+    contactStatus.classList.add("is-success");
+    setSubmitLabel("Envoyé");
   });
 }
-
 function escapeHTML(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -529,6 +539,7 @@ function renderProjects(projects, preservePagination = false) {
 
   if (!preservePagination) {
     visibleProjectCount = PROJECT_INITIAL_COUNT;
+    projectExpanded = false;
   }
 
   previewIntervals.forEach((intervalId) => {
@@ -592,7 +603,7 @@ function renderProjects(projects, preservePagination = false) {
   }
 
   if (projectsToggleLess) {
-    const canShowLess = projects.length > PROJECT_INITIAL_COUNT && clampedVisibleCount > PROJECT_INITIAL_COUNT;
+    const canShowLess = projectExpanded && projects.length > PROJECT_INITIAL_COUNT && clampedVisibleCount > PROJECT_INITIAL_COUNT;
     projectsToggleLess.hidden = !canShowLess;
     projectsToggleLess.textContent = "Voir moins";
   }
@@ -663,6 +674,39 @@ function stopCardPreview(card) {
   setCardMedia(card, 0, false);
 }
 
+
+function clearModalAutoSlide() {
+  if (modalAutoSlideInterval) {
+    clearInterval(modalAutoSlideInterval);
+    modalAutoSlideInterval = null;
+  }
+}
+
+function scheduleModalAutoSlide() {
+  clearModalAutoSlide();
+
+  if (!modalState || modalState.root.hasAttribute("hidden") || modalState.mediaCount <= 1) {
+    return;
+  }
+
+  modalAutoSlideInterval = window.setInterval(() => {
+    if (!modalState || modalState.root.hasAttribute("hidden") || modalState.mediaCount <= 1) {
+      clearModalAutoSlide();
+      return;
+    }
+
+    navigateModalByStep(1);
+  }, 3200);
+}
+function navigateModalByStep(step) {
+  if (!modalState || modalState.root.hasAttribute("hidden") || !modalState.project || modalState.mediaCount <= 1) {
+    return;
+  }
+
+  const nextIndex = (modalState.mediaIndex + step + modalState.mediaCount) % modalState.mediaCount;
+  void openProjectModal(modalState.project, nextIndex);
+}
+
 function ensureProjectModal() {
   if (modalState) {
     return modalState;
@@ -708,8 +752,23 @@ function ensureProjectModal() {
   });
 
   document.addEventListener("keydown", (event) => {
+    if (!modalState || modalState.root.hasAttribute("hidden")) {
+      return;
+    }
+
     if (event.key === "Escape") {
       closeProjectModal();
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      navigateModalByStep(-1);
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      navigateModalByStep(1);
     }
   });
 
@@ -720,6 +779,9 @@ function ensureProjectModal() {
     title,
     description,
     details,
+    project: null,
+    mediaIndex: 0,
+    mediaCount: 0,
   };
 
   return modalState;
@@ -729,6 +791,34 @@ function fillModalDetails(listEl, items) {
   listEl.innerHTML = items
     .map((item) => `<li><strong>${escapeHTML(item.label)}:</strong> ${escapeHTML(item.value)}</li>`)
     .join("");
+}
+
+function appendModalNavigationControls(modal) {
+  if (!modal || modal.mediaCount <= 1) {
+    return;
+  }
+
+  const prevButton = document.createElement("button");
+  prevButton.type = "button";
+  prevButton.className = "project-modal-nav project-modal-nav-prev";
+  prevButton.setAttribute("aria-label", "Media precedent");
+  prevButton.textContent = "‹";
+  prevButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    navigateModalByStep(-1);
+  });
+
+  const nextButton = document.createElement("button");
+  nextButton.type = "button";
+  nextButton.className = "project-modal-nav project-modal-nav-next";
+  nextButton.setAttribute("aria-label", "Media suivant");
+  nextButton.textContent = "›";
+  nextButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    navigateModalByStep(1);
+  });
+
+  modal.visual.append(prevButton, nextButton);
 }
 
 async function openProjectModal(project, mediaIndex = 0) {
@@ -743,6 +833,10 @@ async function openProjectModal(project, mediaIndex = 0) {
 
   const safeIndex = Math.max(0, Math.min(medias.length - 1, mediaIndex));
   const selected = medias[safeIndex];
+
+  modal.project = project;
+  modal.mediaIndex = safeIndex;
+  modal.mediaCount = medias.length;
 
   let dimensionsText = "Chargement...";
   const details = [
@@ -778,8 +872,10 @@ async function openProjectModal(project, mediaIndex = 0) {
       { label: "Dimensions", value: "Indisponible" },
     ]);
     modal.visual.innerHTML = '<p class="project-description">Media indisponible.</p>';
+    appendModalNavigationControls(modal);
     modal.root.removeAttribute("hidden");
     document.body.style.overflow = "hidden";
+    scheduleModalAutoSlide();
     return;
   }
 
@@ -822,8 +918,10 @@ async function openProjectModal(project, mediaIndex = 0) {
     modal.visual.appendChild(img);
   }
 
+  appendModalNavigationControls(modal);
   modal.root.removeAttribute("hidden");
   document.body.style.overflow = "hidden";
+  scheduleModalAutoSlide();
 }
 
 function closeProjectModal() {
@@ -833,6 +931,10 @@ function closeProjectModal() {
 
   modalState.root.setAttribute("hidden", "");
   modalState.visual.querySelectorAll("video").forEach((video) => video.pause());
+  modalState.project = null;
+  modalState.mediaIndex = 0;
+  modalState.mediaCount = 0;
+  clearModalAutoSlide();
   if (modalBlobUrl) {
     URL.revokeObjectURL(modalBlobUrl);
     modalBlobUrl = "";
@@ -934,6 +1036,7 @@ function setupProjectsToggle() {
       return;
     }
 
+    projectExpanded = true;
     visibleProjectCount = Math.min(renderedProjects.length, visibleProjectCount + PROJECT_STEP_COUNT);
     renderProjects(renderedProjects, true);
   });
@@ -943,6 +1046,7 @@ function setupProjectsToggle() {
       return;
     }
 
+    projectExpanded = false;
     visibleProjectCount = PROJECT_INITIAL_COUNT;
     renderProjects(renderedProjects, true);
   });
@@ -955,6 +1059,7 @@ function renderTestimonials(preservePagination = false) {
 
   if (!preservePagination) {
     visibleTestimonialCount = TESTIMONIAL_INITIAL_COUNT;
+    testimonialExpanded = false;
   }
 
   const all = loadTestimonials();
@@ -986,7 +1091,7 @@ function renderTestimonials(preservePagination = false) {
   testimonialsToggle.textContent = "Voir plus";
 
   if (testimonialsToggleLess) {
-    testimonialsToggleLess.hidden = visibleTestimonialCount <= TESTIMONIAL_INITIAL_COUNT;
+    testimonialsToggleLess.hidden = !(testimonialExpanded && visibleTestimonialCount > TESTIMONIAL_INITIAL_COUNT);
     testimonialsToggleLess.textContent = "Voir moins";
   }
 }
@@ -1161,11 +1266,13 @@ function setupTestimonialForm() {
 
   testimonialsToggle?.addEventListener("click", () => {
     const total = loadTestimonials().filter((item) => !item.hiddenOnPortfolio).length;
+    testimonialExpanded = true;
     visibleTestimonialCount = Math.min(total, visibleTestimonialCount + TESTIMONIAL_STEP_COUNT);
     renderTestimonials(true);
   });
 
   testimonialsToggleLess?.addEventListener("click", () => {
+    testimonialExpanded = false;
     visibleTestimonialCount = TESTIMONIAL_INITIAL_COUNT;
     renderTestimonials(true);
   });

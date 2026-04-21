@@ -474,6 +474,20 @@ main > section {
   font-weight: 650;
 }
 
+.btn-less {
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid #111111;
+  box-shadow: none;
+}
+
+.btn-less:hover,
+.btn-less:focus-visible {
+  background: #f2f2f2;
+  color: #111111;
+  border-color: #111111;
+}
+
 .section-head {
   margin-bottom: 1.5rem;
   text-align: center;
@@ -958,6 +972,64 @@ main p {
   transition: transform 180ms ease, border-color 180ms ease, color 180ms ease;
 }
 
+#hero-projects-btn,
+#contact-submit,
+.footer-links a {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.22));
+  color: #111111;
+  backdrop-filter: blur(16px) saturate(165%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 14px 26px rgba(17, 17, 17, 0.16);
+}
+
+#hero-projects-btn::before,
+#contact-submit::before,
+.footer-links a::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05));
+  opacity: 0.72;
+  z-index: -1;
+}
+
+#hero-projects-btn:hover,
+#hero-projects-btn:focus-visible,
+#contact-submit:hover,
+#contact-submit:focus-visible,
+.footer-links a:hover,
+.footer-links a:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 18px 30px rgba(17, 17, 17, 0.2);
+}
+
+:root[data-color-scheme="dark"] #hero-projects-btn,
+:root[data-color-scheme="dark"] #contact-submit,
+:root[data-color-scheme="dark"] .footer-links a {
+  border-color: rgba(255, 255, 255, 0.34);
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06));
+  color: #edf2fb;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 16px 28px rgba(0, 0, 0, 0.34);
+}
+
+:root[data-color-scheme="dark"] #hero-projects-btn::before,
+:root[data-color-scheme="dark"] #contact-submit::before,
+:root[data-color-scheme="dark"] .footer-links a::before {
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.04));
+}
+
 .reveal {
   opacity: 0;
   transform: translateY(28px);
@@ -1183,6 +1255,7 @@ main p {
 }
 
 .project-modal-visual {
+  position: relative;
   padding: 1.25rem;
   display: grid;
   place-items: center;
@@ -1196,6 +1269,37 @@ main p {
   height: auto;
   object-fit: contain;
   display: block;
+}
+
+.project-modal-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.42);
+  color: #ffffff;
+  font-size: 1.45rem;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 3;
+}
+
+.project-modal-nav:hover,
+.project-modal-nav:focus-visible {
+  background: rgba(0, 0, 0, 0.64);
+}
+
+.project-modal-nav-prev {
+  left: 1rem;
+}
+
+.project-modal-nav-next {
+  right: 1rem;
 }
 
 .project-modal-info {
@@ -1259,6 +1363,20 @@ main p {
 
   .project-modal-media {
     max-height: 54vh;
+  }
+
+  .project-modal-nav {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.2rem;
+  }
+
+  .project-modal-nav-prev {
+    left: 0.55rem;
+  }
+
+  .project-modal-nav-next {
+    right: 0.55rem;
   }
 }
 
