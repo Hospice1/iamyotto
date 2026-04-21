@@ -1,8 +1,9 @@
-﻿const ADMIN_PROJECTS_KEY = "iamyotto_admin_projects";
+const ADMIN_PROJECTS_KEY = "iamyotto_admin_projects";
 const TESTIMONIALS_KEY = "iamyotto_testimonials";
 const CONTACT_MESSAGES_KEY = "iamyotto_contact_messages";
 const DASHBOARD_PROJECT_COUNT_KEY = "iamyotto_dashboard_project_count";
 const PORTFOLIO_VISITS_KEY = "iamyotto_portfolio_visits";
+const ABOUT_PROFILE_KEY = "iamyotto_about_profile";
 const ADMIN_SESSION_KEY = "iamyotto_admin_session";
 const ADMIN_HISTORY_KEY = "iamyotto_admin_history";
 const ADMIN_PASSWORD = "AZERTY1234";
@@ -116,9 +117,15 @@ const dashboardProjectCountInput = document.getElementById("dashboard-project-co
 const dashboardVisits = document.getElementById("dashboard-visits");
 const dashboardProjectsPreview = document.getElementById("dashboard-projects-preview");
 const dashboardStatus = document.getElementById("dashboard-status");
+const aboutProfileForm = document.getElementById("about-profile-form");
+const aboutRoleText = document.getElementById("about-role-text");
+const aboutPhotoFile = document.getElementById("about-photo-file");
+const aboutPhotoPreview = document.getElementById("about-photo-preview");
+const aboutProfileStatus = document.getElementById("about-profile-status");
 
 let editMediaDraft = [];
 const adminBlobUrls = new Set();
+let aboutPreviewBlobUrl = "";
 
 function cloneJSON(value) {
   return JSON.parse(JSON.stringify(value));
@@ -130,6 +137,7 @@ function isAuthenticated() {
 
 function lockAdmin() {
   clearAdminBlobUrls();
+  clearAboutPreviewBlobUrl();
 
   if (adminApp) {
     adminApp.hidden = true;
@@ -154,6 +162,7 @@ async function unlockAdmin() {
   renderTestimonialList();
   renderContactMessageList();
   renderDashboardPanel();
+  await renderAboutProfileEditor();
 }
 
 function createProjectId() {
@@ -490,6 +499,14 @@ function clearAdminBlobUrls() {
   adminBlobUrls.forEach((url) => URL.revokeObjectURL(url));
   adminBlobUrls.clear();
 }
+function clearAboutPreviewBlobUrl() {
+  if (!aboutPreviewBlobUrl) {
+    return;
+  }
+
+  URL.revokeObjectURL(aboutPreviewBlobUrl);
+  aboutPreviewBlobUrl = "";
+}
 
 async function resolveAdminMediaSrc(media) {
   if (!media) {
@@ -718,6 +735,89 @@ function loadDashboardProjectCount() {
 function saveDashboardProjectCount(value) {
   const safe = Math.max(0, Math.floor(Number(value) || 0));
   localStorage.setItem(DASHBOARD_PROJECT_COUNT_KEY, String(safe));
+}
+function normalizeAboutProfile(value) {
+  const roleText = String(value?.roleText || value?.role || "Designer").trim();
+  const storage = String(value?.photoStorage || value?.photo?.storage || "").trim();
+  const photoId = String(value?.photoId || value?.photo?.id || "").trim();
+  const photoSrc = String(value?.photoSrc || value?.photo?.src || "").trim();
+
+  if (storage === "idb" && photoId) {
+    return {
+      roleText: roleText || "Designer",
+      photoStorage: "idb",
+      photoId,
+      photoSrc: "",
+    };
+  }
+
+  return {
+    roleText: roleText || "Designer",
+    photoStorage: "src",
+    photoId: "",
+    photoSrc: photoSrc || "assets/hospice-yotto.jpg",
+  };
+}
+
+function loadAboutProfile() {
+  try {
+    const raw = localStorage.getItem(ABOUT_PROFILE_KEY);
+    if (!raw) {
+      return normalizeAboutProfile({});
+    }
+
+    const parsed = JSON.parse(raw);
+    return normalizeAboutProfile(parsed);
+  } catch (error) {
+    console.error("Erreur lecture profil a propos", error);
+    return normalizeAboutProfile({});
+  }
+}
+
+function saveAboutProfile(profile) {
+  try {
+    localStorage.setItem(ABOUT_PROFILE_KEY, JSON.stringify(normalizeAboutProfile(profile)));
+    return true;
+  } catch (error) {
+    console.error("Stockage profil a propos plein", error);
+    return false;
+  }
+}
+
+async function resolveAboutPreviewSrc(profile) {
+  if (profile.photoStorage === "idb" && profile.photoId) {
+    const store = getMediaStore();
+    if (store?.getObjectURLById) {
+      try {
+        const src = await store.getObjectURLById(profile.photoId);
+        if (src) {
+          aboutPreviewBlobUrl = src;
+          return src;
+        }
+      } catch (error) {
+        console.error("Erreur chargement photo a propos", error);
+      }
+    }
+  }
+
+  return String(profile.photoSrc || "assets/hospice-yotto.jpg");
+}
+
+async function renderAboutProfileEditor() {
+  if (!(aboutRoleText instanceof HTMLInputElement) || !(aboutPhotoPreview instanceof HTMLImageElement)) {
+    return;
+  }
+
+  const profile = loadAboutProfile();
+  aboutRoleText.value = profile.roleText || "Designer";
+
+  if (aboutPhotoFile instanceof HTMLInputElement) {
+    aboutPhotoFile.value = "";
+  }
+
+  clearAboutPreviewBlobUrl();
+  const src = await resolveAboutPreviewSrc(profile);
+  aboutPhotoPreview.src = src || "assets/hospice-yotto.jpg";
 }
 
 function loadPortfolioVisits() {
@@ -1490,6 +1590,89 @@ dashboardForm?.addEventListener("submit", (event) => {
   }
 });
 
+aboutProfileForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const roleText = String(aboutRoleText?.value || "").trim() || "Designer";
+  const currentProfile = loadAboutProfile();
+  let nextProfile = normalizeAboutProfile({
+    ...currentProfile,
+    roleText,
+  });
+
+  const file = aboutPhotoFile instanceof HTMLInputElement
+    ? aboutPhotoFile.files?.[0] || null
+    : null;
+
+  if (file) {
+    if (!String(file.type || "").startsWith("image/")) {
+      if (aboutProfileStatus) {
+        aboutProfileStatus.textContent = "Choisissez une image valide (jpg, png, webp...).";
+      }
+      return;
+    }
+
+    const store = getMediaStore();
+    if (store?.saveFile) {
+      try {
+        const saved = await store.saveFile(file);
+        nextProfile = normalizeAboutProfile({
+          roleText,
+          photoStorage: "idb",
+          photoId: saved?.id || "",
+          photoSrc: "",
+        });
+
+        if (
+          currentProfile.photoStorage === "idb"
+          && currentProfile.photoId
+          && currentProfile.photoId !== nextProfile.photoId
+          && store.deleteById
+        ) {
+          try {
+            await store.deleteById(currentProfile.photoId);
+          } catch (cleanupError) {
+            console.warn("Ancienne photo a propos non supprimee", cleanupError);
+          }
+        }
+      } catch (error) {
+        console.error("Erreur sauvegarde photo a propos", error);
+        if (aboutProfileStatus) {
+          aboutProfileStatus.textContent = "Impossible d'enregistrer cette image.";
+        }
+        return;
+      }
+    } else {
+      try {
+        const dataUrl = await readFileAsDataURL(file);
+        nextProfile = normalizeAboutProfile({
+          roleText,
+          photoStorage: "src",
+          photoId: "",
+          photoSrc: dataUrl,
+        });
+      } catch (error) {
+        console.error("Erreur lecture image a propos", error);
+        if (aboutProfileStatus) {
+          aboutProfileStatus.textContent = "Impossible de lire cette image.";
+        }
+        return;
+      }
+    }
+  }
+
+  if (!saveAboutProfile(nextProfile)) {
+    if (aboutProfileStatus) {
+      aboutProfileStatus.textContent = "Impossible d'enregistrer: stockage navigateur plein.";
+    }
+    return;
+  }
+
+  await renderAboutProfileEditor();
+  if (aboutProfileStatus) {
+    aboutProfileStatus.textContent = "Section A propos mise a jour.";
+  }
+});
 removeBadBtn?.addEventListener("click", () => {
   const testimonials = loadTestimonials();
   const filtered = testimonials.filter((item) => !isNegativeOrAbusive(item));
@@ -1540,8 +1723,16 @@ window.addEventListener("storage", (event) => {
   if (event.key === PORTFOLIO_VISITS_KEY || event.key === DASHBOARD_PROJECT_COUNT_KEY) {
     renderDashboardPanel();
   }
+
+  if (event.key === ABOUT_PROFILE_KEY) {
+    void renderAboutProfileEditor();
+  }
 });
 
+window.addEventListener("beforeunload", () => {
+  clearAdminBlobUrls();
+  clearAboutPreviewBlobUrl();
+});
 window.addEventListener("DOMContentLoaded", async () => {
   ensureTestimonialsSeeded();
   setCreateMode();
@@ -1552,4 +1743,3 @@ window.addEventListener("DOMContentLoaded", async () => {
     lockAdmin();
   }
 });
-

@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg: #f4f5fb;
   --ink: #121318;
   --muted: #666e82;
@@ -249,6 +249,45 @@ h3 {
   color: var(--accent);
   font-weight: 800;
   font-size: 1.25rem;
+}
+
+.about-profile-form {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.about-profile-form label {
+  display: grid;
+  gap: 0.34rem;
+  font-weight: 650;
+}
+
+.about-profile-form input[type="text"],
+.about-profile-form input[type="file"] {
+  border: 1px solid rgba(91, 33, 182, 0.2);
+  border-radius: 12px;
+  padding: 0.74rem;
+  font: inherit;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.about-profile-form input[type="text"]:focus,
+.about-profile-form input[type="file"]:focus {
+  outline: 2px solid rgba(91, 33, 182, 0.25);
+}
+
+.about-profile-preview {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.about-profile-preview img {
+  width: min(100%, 240px);
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(91, 33, 182, 0.2);
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .admin-list,
@@ -542,4 +581,3 @@ h3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-

@@ -1,9 +1,10 @@
-﻿const THEME_STORAGE_KEY = "iamyotto_theme_preference";
+const THEME_STORAGE_KEY = "iamyotto_theme_preference";
 const ADMIN_PROJECTS_KEY = "iamyotto_admin_projects";
 const TESTIMONIALS_KEY = "iamyotto_testimonials";
 const CONTACT_MESSAGES_KEY = "iamyotto_contact_messages";
 const DASHBOARD_PROJECT_COUNT_KEY = "iamyotto_dashboard_project_count";
 const PORTFOLIO_VISITS_KEY = "iamyotto_portfolio_visits";
+const ABOUT_PROFILE_KEY = "iamyotto_about_profile";
 
 const INITIAL_TESTIMONIALS = [
   {
@@ -91,6 +92,8 @@ const contactForm = document.getElementById("contact-form");
 const contactStatus = document.getElementById("contact-status");
 const contactSubmit = document.getElementById("contact-submit");
 const proofProjectCount = document.getElementById("proof-project-count");
+const aboutPhoto = document.getElementById("about-photo");
+const aboutCaptionText = document.getElementById("about-caption-text");
 const whatsappMessage = document.getElementById("whatsapp-message");
 const whatsappMessageClose = document.getElementById("whatsapp-message-close");
 const themeToggle = document.getElementById("theme-toggle");
@@ -114,6 +117,7 @@ const projectBlobUrls = new Set();
 let modalBlobUrl = "";
 let modalState = null;
 let modalAutoSlideInterval = null;
+let aboutPhotoBlobUrl = "";
 let touchTapState = {
   cardKey: "",
   at: 0,
@@ -416,6 +420,88 @@ function loadContactMessages() {
 
 function saveContactMessages(messages) {
   localStorage.setItem(CONTACT_MESSAGES_KEY, JSON.stringify(messages));
+}
+
+function normalizeAboutProfile(value) {
+  const roleText = String(value?.roleText || value?.role || "Designer").trim();
+  const storage = String(value?.photoStorage || value?.photo?.storage || "").trim();
+  const photoId = String(value?.photoId || value?.photo?.id || "").trim();
+  const photoSrc = String(value?.photoSrc || value?.photo?.src || "").trim();
+
+  if (storage === "idb" && photoId) {
+    return {
+      roleText: roleText || "Designer",
+      photoStorage: "idb",
+      photoId,
+      photoSrc: "",
+    };
+  }
+
+  return {
+    roleText: roleText || "Designer",
+    photoStorage: "src",
+    photoId: "",
+    photoSrc: photoSrc || "assets/hospice-yotto.jpg",
+  };
+}
+
+function loadAboutProfile() {
+  try {
+    const raw = localStorage.getItem(ABOUT_PROFILE_KEY);
+    if (!raw) {
+      return normalizeAboutProfile({});
+    }
+
+    const parsed = JSON.parse(raw);
+    return normalizeAboutProfile(parsed);
+  } catch (error) {
+    console.error("Erreur lecture profil a propos", error);
+    return normalizeAboutProfile({});
+  }
+}
+
+function formatAboutCaptionText(roleText) {
+  const safe = String(roleText || "").trim() || "Designer";
+  return `Hospice YOTTO - ${safe}`;
+}
+
+async function renderAboutProfile() {
+  if (!aboutPhoto && !aboutCaptionText) {
+    return;
+  }
+
+  const profile = loadAboutProfile();
+
+  if (aboutCaptionText) {
+    aboutCaptionText.textContent = formatAboutCaptionText(profile.roleText);
+  }
+
+  if (!(aboutPhoto instanceof HTMLImageElement)) {
+    return;
+  }
+
+  if (aboutPhotoBlobUrl) {
+    URL.revokeObjectURL(aboutPhotoBlobUrl);
+    aboutPhotoBlobUrl = "";
+  }
+
+  let src = profile.photoSrc;
+
+  if (profile.photoStorage === "idb" && profile.photoId) {
+    const store = getMediaStore();
+    if (store?.getObjectURLById) {
+      try {
+        src = await store.getObjectURLById(profile.photoId);
+        if (src) {
+          aboutPhotoBlobUrl = src;
+        }
+      } catch (error) {
+        console.error("Erreur chargement photo a propos", error);
+      }
+    }
+  }
+
+  aboutPhoto.src = src || "assets/hospice-yotto.jpg";
 }
 
 function loadDashboardProjectCount() {
@@ -1503,17 +1589,23 @@ window.addEventListener("storage", (event) => {
   if (event.key === DASHBOARD_PROJECT_COUNT_KEY) {
     renderProofProjectCount();
   }
+
+  if (event.key === ABOUT_PROFILE_KEY) {
+    void renderAboutProfile();
+  }
 });
 
 window.addEventListener("focus", () => {
   importProjects();
   renderTestimonials();
   renderProofProjectCount();
+  void renderAboutProfile();
 });
 
 window.addEventListener("DOMContentLoaded", () => {
   incrementPortfolioVisits();
   renderProofProjectCount();
+  void renderAboutProfile();
   ensureTestimonialsSeeded();
   setupThemeSwitcher();
   setupScrollReveal();
@@ -1526,3 +1618,9 @@ window.addEventListener("DOMContentLoaded", () => {
   importProjects();
 });
 
+window.addEventListener("beforeunload", () => {
+  if (aboutPhotoBlobUrl) {
+    URL.revokeObjectURL(aboutPhotoBlobUrl);
+    aboutPhotoBlobUrl = "";
+  }
+});
