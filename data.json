@@ -2,46 +2,8 @@
   "source": {
     "type": "whatsapp",
     "catalog_url": "https://wa.me/c/22940175015",
-    "products": [
-      {
-        "titre": "Brand Identity Pack",
-        "description": "Création d’identité visuelle complète: logo, palette, typographies et kit social media.",
-        "image": "assets/project-01.jpg",
-        "categorie": "Branding"
-      },
-      {
-        "titre": "Design Social Media Premium",
-        "description": "Templates de publications haut de gamme pensés pour convertir et renforcer votre image.",
-        "image": "assets/project-02.png",
-        "categorie": "Social Media"
-      },
-      {
-        "titre": "Portfolio / Landing Page Design",
-        "description": "Conception d’interface minimaliste, impactante et orientée expérience utilisateur.",
-        "image": "assets/project-03.jpg",
-        "categorie": "Web Design"
-      }
-    ]
+    "products": []
   },
-  "products": [
-    {
-      "titre": "Brand Identity Pack",
-      "description": "Création d’identité visuelle complète: logo, palette, typographies et kit social media.",
-      "image": "assets/project-01.jpg",
-      "categorie": "Branding"
-    },
-    {
-      "titre": "Design Social Media Premium",
-      "description": "Templates de publications haut de gamme pensés pour convertir et renforcer votre image.",
-      "image": "assets/project-02.png",
-      "categorie": "Social Media"
-    },
-    {
-      "titre": "Portfolio / Landing Page Design",
-      "description": "Conception d’interface minimaliste, impactante et orientée expérience utilisateur.",
-      "image": "assets/project-03.jpg",
-      "categorie": "Web Design"
-    }
-  ]
+  "products": []
 }
 

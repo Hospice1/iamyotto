@@ -283,6 +283,10 @@ function mapWhatsAppLikePayload(data) {
   return normalizeProjectsArray(data?.products);
 }
 
+function isSeedCatalogProject(project) {
+  const ref = String(project?.catalogRef || "").trim().toLowerCase();
+  return ref.startsWith("catalog:") || ref.startsWith("whatsapp:");
+}
 function loadAdminProjects() {
   try {
     const raw = localStorage.getItem(ADMIN_PROJECTS_KEY);
@@ -291,7 +295,10 @@ function loadAdminProjects() {
     }
 
     const parsed = JSON.parse(raw);
-    return normalizeProjectsArray(parsed);
+    const safeList = Array.isArray(parsed)
+      ? parsed.filter((project) => !isSeedCatalogProject(project))
+      : [];
+    return normalizeProjectsArray(safeList);
   } catch (error) {
     console.error("Erreur de lecture des projets admin", error);
     return [];

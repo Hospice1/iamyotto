@@ -137,7 +137,7 @@ async function unlockAdmin() {
   }
 
   await migrateProjectsMediaToIndexedDb();
-  await mergeCatalogIntoAdminProjects();
+  purgeSeededCatalogProjects();
   renderProjectList();
   renderHistoryList();
   renderTestimonialList();
@@ -306,6 +306,28 @@ function projectSignature(project) {
   return `${String(project.title || "").trim().toLowerCase()}|${String(project.category || "").trim().toLowerCase()}|${firstSrc}`;
 }
 
+function isSeedCatalogProject(project) {
+  const ref = String(project?.catalogRef || "").trim().toLowerCase();
+  return ref.startsWith("catalog:") || ref.startsWith("whatsapp:");
+}
+
+function purgeSeededCatalogProjects() {
+  const projects = loadProjects();
+  if (!projects.length) {
+    return projects;
+  }
+
+  const filtered = projects.filter((project) => !isSeedCatalogProject(project));
+  if (filtered.length === projects.length) {
+    return projects;
+  }
+
+  if (!saveProjects(filtered)) {
+    return projects;
+  }
+
+  return filtered;
+}
 async function mergeCatalogIntoAdminProjects() {
   const existing = loadProjects();
   const catalogProjects = await loadCatalogProjects();
