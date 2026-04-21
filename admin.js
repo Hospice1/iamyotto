@@ -92,6 +92,7 @@ const submitProjectBtn = document.getElementById("submit-project-btn");
 const cancelEditBtn = document.getElementById("cancel-edit");
 const categoryInput = form?.querySelector('input[name="categorie"]');
 const titleInput = form?.querySelector('input[name="titre"]');
+const descriptionInput = form?.querySelector('textarea[name="description"]');
 
 const testimonialList = document.getElementById("testimonial-list");
 const testimonialStatus = document.getElementById("testimonial-status");
@@ -131,20 +132,89 @@ function createProjectId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function normalizeProject(item) {
-  const firstImage = Array.isArray(item?.images)
-    ? item.images.find((entry) => Boolean(entry))
-    : item?.image;
+function inferMediaType(value) {
+  const src = String(value || "").trim().toLowerCase();
+  if (src.startsWith("data:video/")) {
+    return "video";
+  }
+  if (src.startsWith("data:image/")) {
+    return "image";
+  }
 
+  if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(src)) {
+    return "video";
+  }
+
+  return "image";
+}
+
+function normalizeMediaEntry(entry) {
+  if (!entry) {
+    return null;
+  }
+
+  if (typeof entry === "string") {
+    const src = entry.trim();
+    if (!src) {
+      return null;
+    }
+
+    return {
+      src,
+      type: inferMediaType(src),
+    };
+  }
+
+  const src = String(entry?.src || entry?.url || entry?.image || "").trim();
+  if (!src) {
+    return null;
+  }
+
+  const type = entry?.type === "video" || entry?.type === "image"
+    ? entry.type
+    : inferMediaType(src);
+
+  return {
+    src,
+    type,
+  };
+}
+
+function extractProjectMedias(item) {
+  if (Array.isArray(item?.medias)) {
+    return item.medias.map(normalizeMediaEntry).filter(Boolean);
+  }
+
+  if (Array.isArray(item?.images)) {
+    return item.images.map(normalizeMediaEntry).filter(Boolean);
+  }
+
+  if (item?.image) {
+    const media = normalizeMediaEntry(item.image);
+    return media ? [media] : [];
+  }
+
+  return [];
+}
+
+function normalizeProject(item) {
   const category = String(item?.category || item?.categorie || "Creation").trim();
   const title = String(item?.title || item?.titre || "Creation sans titre").trim();
+  const description = String(item?.description || "").trim();
   const catalogRef = String(item?.catalogRef || "").trim();
+
+  const medias = extractProjectMedias(item);
+  if (!medias.length) {
+    medias.push({ src: "assets/project-01.jpg", type: "image" });
+  }
 
   return {
     id: String(item?.id || createProjectId()),
     category: category || "Creation",
     title: title || "Creation sans titre",
-    image: String(firstImage || "assets/project-01.jpg"),
+    description,
+    image: medias[0].src,
+    medias,
     createdAt: item?.createdAt || new Date().toISOString(),
     catalogRef,
   };
@@ -200,7 +270,8 @@ async function loadCatalogProjects() {
 }
 
 function projectSignature(project) {
-  return `${String(project.title || "").trim().toLowerCase()}|${String(project.category || "").trim().toLowerCase()}|${String(project.image || "").trim()}`;
+  const firstSrc = String(project?.medias?.[0]?.src || project?.image || "").trim();
+  return `${String(project.title || "").trim().toLowerCase()}|${String(project.category || "").trim().toLowerCase()}|${firstSrc}`;
 }
 
 async function mergeCatalogIntoAdminProjects() {
@@ -289,7 +360,16 @@ function loadProjects() {
     const normalized = parsed.map(normalizeProject);
     const needsMigration = parsed.some((item, index) => {
       const normalizedItem = normalized[index];
-      return !item?.id || !item?.title || !item?.category || item?.image !== normalizedItem.image || String(item?.catalogRef || "") !== String(normalizedItem.catalogRef || "");
+      const oldMediaJSON = JSON.stringify(item?.medias || []);
+      const nextMediaJSON = JSON.stringify(normalizedItem.medias);
+
+      return !item?.id
+        || !item?.title
+        || !item?.category
+        || String(item?.description || "") !== normalizedItem.description
+        || String(item?.image || "") !== normalizedItem.image
+        || oldMediaJSON !== nextMediaJSON
+        || String(item?.catalogRef || "") !== String(normalizedItem.catalogRef || "");
     });
 
     if (needsMigration) {
@@ -351,6 +431,15 @@ function isNegativeOrAbusive(testimonial) {
   return lowRating || bannedPattern.test(text);
 }
 
+function projectPreviewMarkup(project) {
+  const firstMedia = project.medias?.[0];
+  if (firstMedia?.type === "video") {
+    return `<video src="${escapeHTML(firstMedia.src)}" muted playsinline preload="metadata"></video>`;
+  }
+
+  return `<img src="${escapeHTML(firstMedia?.src || project.image)}" alt="${escapeHTML(project.title)}" loading="lazy" />`;
+}
+
 function setCreateMode() {
   if (editProjectIdInput) {
     editProjectIdInput.value = "";
@@ -364,7 +453,12 @@ function setCreateMode() {
 }
 
 function setEditMode(project) {
-  if (!project || !(categoryInput instanceof HTMLInputElement) || !(titleInput instanceof HTMLInputElement)) {
+  if (
+    !project
+    || !(categoryInput instanceof HTMLInputElement)
+    || !(titleInput instanceof HTMLInputElement)
+    || !(descriptionInput instanceof HTMLTextAreaElement)
+  ) {
     return;
   }
 
@@ -373,6 +467,7 @@ function setEditMode(project) {
   }
   categoryInput.value = project.category;
   titleInput.value = project.title;
+  descriptionInput.value = project.description || "";
 
   if (imageFilesInput) {
     imageFilesInput.value = "";
@@ -386,7 +481,7 @@ function setEditMode(project) {
   }
 
   if (statusBox) {
-    statusBox.textContent = "Mode modification actif. Modifiez les champs puis enregistrez.";
+    statusBox.textContent = "Mode modification actif. Vous pouvez remplacer les médias ou juste modifier les infos.";
   }
 
   form?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -408,10 +503,11 @@ function renderProjectList() {
     .map(
       (project) => `
       <article class="admin-item">
-        <img src="${escapeHTML(project.image)}" alt="${escapeHTML(project.title)}" loading="lazy" />
+        ${projectPreviewMarkup(project)}
         <div class="admin-item-body">
           <p class="admin-category">${escapeHTML(project.category)}</p>
           <h3>${escapeHTML(project.title)}</h3>
+          <p class="admin-status">${project.medias.length} media(s)</p>
           <div class="admin-item-actions">
             <button class="edit-btn" type="button" data-id="${escapeHTML(project.id)}">Modifier</button>
             <button class="delete-btn" type="button" data-id="${escapeHTML(project.id)}">Supprimer</button>
@@ -459,13 +555,25 @@ function renderTestimonialList() {
     .join("");
 }
 
-function readImageAsDataURL(file) {
+function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error("Image non lisible"));
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Fichier non lisible"));
     reader.readAsDataURL(file);
   });
+}
+
+async function filesToMedias(files) {
+  const medias = await Promise.all(
+    files.map(async (file) => {
+      const src = await readFileAsDataURL(file);
+      const type = String(file.type || "").startsWith("video/") ? "video" : "image";
+      return { src, type };
+    })
+  );
+
+  return medias.map(normalizeMediaEntry).filter(Boolean);
 }
 
 loginForm?.addEventListener("submit", async (event) => {
@@ -503,6 +611,7 @@ form?.addEventListener("submit", async (event) => {
   const projectId = String(data.get("projectId") || "").trim();
   const category = String(data.get("categorie") || "").trim();
   const title = String(data.get("titre") || "").trim();
+  const description = String(data.get("description") || "").trim();
   const files = Array.from(imageFilesInput?.files || []);
 
   if (!category || !title) {
@@ -525,17 +634,24 @@ form?.addEventListener("submit", async (event) => {
     }
 
     const currentProject = projects[index];
-    let nextImage = currentProject.image;
+    let medias = currentProject.medias;
 
     if (files.length) {
       try {
-        nextImage = await readImageAsDataURL(files[0]);
+        medias = await filesToMedias(files);
       } catch {
         if (statusBox) {
-          statusBox.textContent = "Impossible de lire la nouvelle image.";
+          statusBox.textContent = "Impossible de lire un ou plusieurs médias.";
         }
         return;
       }
+    }
+
+    if (!medias.length) {
+      if (statusBox) {
+        statusBox.textContent = "Ajoutez au moins un média.";
+      }
+      return;
     }
 
     projects[index] = normalizeProject({
@@ -543,8 +659,10 @@ form?.addEventListener("submit", async (event) => {
       id: currentProject.id,
       category,
       title,
-      image: nextImage,
+      description,
+      medias,
       createdAt: currentProject.createdAt,
+      catalogRef: currentProject.catalogRef,
     });
 
     saveProjects(projects);
@@ -556,8 +674,8 @@ form?.addEventListener("submit", async (event) => {
 
     if (statusBox) {
       statusBox.textContent = files.length
-        ? "Creation modifiee (titre/categorie/image)."
-        : "Creation modifiee (titre/categorie).";
+        ? "Creation modifiee (infos + médias)."
+        : "Creation modifiee (infos).";
     }
 
     renderProjectList();
@@ -566,28 +684,36 @@ form?.addEventListener("submit", async (event) => {
 
   if (!files.length) {
     if (statusBox) {
-      statusBox.textContent = "Ajoutez au moins une image.";
+      statusBox.textContent = "Ajoutez au moins un média.";
     }
     return;
   }
 
-  let images;
+  let medias;
   try {
-    images = await Promise.all(files.map((file) => readImageAsDataURL(file)));
+    medias = await filesToMedias(files);
   } catch {
     if (statusBox) {
-      statusBox.textContent = "Impossible de lire au moins une image.";
+      statusBox.textContent = "Impossible de lire un ou plusieurs médias.";
     }
     return;
   }
 
-  const newProjects = images.map((image) => normalizeProject({
+  if (!medias.length) {
+    if (statusBox) {
+      statusBox.textContent = "Ajoutez au moins un média valide.";
+    }
+    return;
+  }
+
+  const newProject = normalizeProject({
     category,
     title,
-    image,
-  }));
+    description,
+    medias,
+  });
 
-  const mergedProjects = [...newProjects, ...projects];
+  const mergedProjects = [newProject, ...projects];
   saveProjects(mergedProjects);
 
   form.reset();
@@ -597,7 +723,7 @@ form?.addEventListener("submit", async (event) => {
   setCreateMode();
 
   if (statusBox) {
-    statusBox.textContent = `${newProjects.length} creation(s) ajoutee(s). Elles sont visibles dans la section Projets du portfolio.`;
+    statusBox.textContent = `${newProject.medias.length} media(s) ajoute(s) dans une seule creation.`;
   }
   renderProjectList();
 });
@@ -729,4 +855,3 @@ window.addEventListener("DOMContentLoaded", async () => {
     lockAdmin();
   }
 });
-

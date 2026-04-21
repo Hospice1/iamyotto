@@ -214,11 +214,16 @@ h3 {
   background: rgba(255, 255, 255, 0.75);
 }
 
-.admin-item img {
+.admin-item img,
+.admin-item video {
   width: 100%;
   aspect-ratio: 16/10;
   object-fit: cover;
   display: block;
+}
+
+.admin-item video {
+  background: #101218;
 }
 
 .admin-item-body {
@@ -346,3 +351,4 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+

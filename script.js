@@ -88,6 +88,14 @@ const themeOptions = Array.from(document.querySelectorAll(".theme-option"));
 const systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
 let testimonialsExpanded = false;
+let renderedProjects = [];
+const previewIntervals = new Map();
+const touchPreviewTimeouts = new Map();
+let modalState = null;
+let touchTapState = {
+  cardKey: "",
+  at: 0,
+};
 
 async function loadCatalogData() {
   const response = await fetch("data.json", { cache: "no-store" });
@@ -97,20 +105,86 @@ async function loadCatalogData() {
   return response.json();
 }
 
-function normalizeProject(item) {
-  const firstImage = Array.isArray(item?.images)
-    ? item.images.find((entry) => Boolean(entry))
-    : item?.image;
+function inferMediaType(value) {
+  const src = String(value || "").trim().toLowerCase();
 
+  if (src.startsWith("data:video/")) {
+    return "video";
+  }
+  if (src.startsWith("data:image/")) {
+    return "image";
+  }
+  if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(src)) {
+    return "video";
+  }
+
+  return "image";
+}
+
+function normalizeMediaEntry(entry) {
+  if (!entry) {
+    return null;
+  }
+
+  if (typeof entry === "string") {
+    const src = entry.trim();
+    if (!src) {
+      return null;
+    }
+    return {
+      src,
+      type: inferMediaType(src),
+    };
+  }
+
+  const src = String(entry?.src || entry?.url || entry?.image || "").trim();
+  if (!src) {
+    return null;
+  }
+
+  const type = entry?.type === "video" || entry?.type === "image"
+    ? entry.type
+    : inferMediaType(src);
+
+  return {
+    src,
+    type,
+  };
+}
+
+function extractProjectMedias(item) {
+  if (Array.isArray(item?.medias)) {
+    return item.medias.map(normalizeMediaEntry).filter(Boolean);
+  }
+
+  if (Array.isArray(item?.images)) {
+    return item.images.map(normalizeMediaEntry).filter(Boolean);
+  }
+
+  if (item?.image) {
+    const media = normalizeMediaEntry(item.image);
+    return media ? [media] : [];
+  }
+
+  return [];
+}
+
+function normalizeProject(item) {
   const category = String(item?.category || item?.categorie || "Creation").trim();
   const title = String(item?.titre || item?.title || "Creation sans titre").trim();
   const description = String(item?.description || "").trim();
+  const medias = extractProjectMedias(item);
+
+  if (!medias.length) {
+    medias.push({ src: "assets/project-01.jpg", type: "image" });
+  }
 
   return {
     title: title || "Creation sans titre",
     category: category || "Creation",
     description,
-    image: String(firstImage || "assets/project-01.jpg"),
+    image: medias[0].src,
+    medias,
   };
 }
 
@@ -207,10 +281,25 @@ function starString(rating) {
   return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`;
 }
 
+function renderProjectMedia(media, projectTitle) {
+  if (media.type === "video") {
+    return `<video class="project-media" src="${escapeHTML(media.src)}" muted playsinline preload="metadata" loop></video>`;
+  }
+
+  return `<img class="project-media" src="${escapeHTML(media.src)}" alt="${escapeHTML(projectTitle)}" loading="lazy" />`;
+}
+
 function renderProjects(projects) {
   if (!projectGrid) {
     return;
   }
+
+  renderedProjects = projects;
+
+  previewIntervals.forEach((intervalId) => {
+    clearInterval(intervalId);
+  });
+  previewIntervals.clear();
 
   if (!projects.length) {
     projectGrid.innerHTML = '<p class="project-description">Aucune creation disponible pour le moment.</p>';
@@ -218,24 +307,338 @@ function renderProjects(projects) {
   }
 
   projectGrid.innerHTML = projects
-    .map((project) => {
+    .map((project, projectIndex) => {
+      const medias = Array.isArray(project.medias) ? project.medias : [{ src: project.image, type: "image" }];
       const description = String(project.description || "").trim();
       const descriptionMarkup = description
         ? `<p class="project-description">${escapeHTML(description)}</p>`
         : "";
 
+      const mediaMarkup = medias.map((media) => renderProjectMedia(media, project.title)).join("");
+      const mediaCountMarkup = medias.length > 1
+        ? `<span class="project-media-count">${medias.length}</span>`
+        : "";
+
       return `
-      <article class="project-card">
-        <img class="project-thumb" src="${escapeHTML(project.image)}" alt="${escapeHTML(project.title)}" loading="lazy" />
+      <article class="project-card" data-project-index="${projectIndex}" tabindex="0" role="button" aria-label="Ouvrir ${escapeHTML(project.title)}">
+        <div class="project-media-shell">
+          ${mediaMarkup}
+          ${mediaCountMarkup}
+        </div>
         <div class="project-content">
           <p class="project-meta">${escapeHTML(project.category)}</p>
           <h3 class="project-title">${escapeHTML(project.title)}</h3>
           ${descriptionMarkup}
+          <p class="project-hint">Double-clic pour afficher en détail</p>
         </div>
       </article>
     `;
     })
     .join("");
+
+  projectGrid.querySelectorAll(".project-card").forEach((card) => {
+    setCardMedia(card, 0, false);
+  });
+
+  setupProjectInteractions();
+}
+
+function setCardMedia(card, mediaIndex, autoplay) {
+  const mediaNodes = Array.from(card.querySelectorAll(".project-media"));
+  if (!mediaNodes.length) {
+    return;
+  }
+
+  const index = Math.max(0, Math.min(mediaNodes.length - 1, mediaIndex));
+  card.dataset.activeMedia = String(index);
+
+  mediaNodes.forEach((node, idx) => {
+    const isActive = idx === index;
+    node.classList.toggle("is-active", isActive);
+
+    if (node instanceof HTMLVideoElement) {
+      if (!isActive) {
+        node.pause();
+        node.currentTime = 0;
+      } else if (autoplay) {
+        node.muted = true;
+        node.play().catch(() => {});
+      }
+    }
+  });
+}
+
+function startCardPreview(card) {
+  const mediaNodes = Array.from(card.querySelectorAll(".project-media"));
+  if (!mediaNodes.length) {
+    return;
+  }
+
+  const hasVideo = mediaNodes.some((node) => node instanceof HTMLVideoElement);
+  const canRotate = mediaNodes.length > 1;
+
+  setCardMedia(card, Number(card.dataset.activeMedia || 0), true);
+
+  if (!canRotate && !hasVideo) {
+    return;
+  }
+
+  if (previewIntervals.has(card)) {
+    return;
+  }
+
+  const intervalId = window.setInterval(() => {
+    const current = Number(card.dataset.activeMedia || 0);
+    const next = (current + 1) % mediaNodes.length;
+    setCardMedia(card, next, true);
+  }, 1200);
+
+  previewIntervals.set(card, intervalId);
+}
+
+function stopCardPreview(card) {
+  const intervalId = previewIntervals.get(card);
+  if (intervalId) {
+    clearInterval(intervalId);
+    previewIntervals.delete(card);
+  }
+
+  setCardMedia(card, 0, false);
+}
+
+function ensureProjectModal() {
+  if (modalState) {
+    return modalState;
+  }
+
+  const modal = document.createElement("div");
+  modal.className = "project-modal";
+  modal.setAttribute("hidden", "");
+  modal.innerHTML = `
+    <div class="project-modal-backdrop" data-close="1"></div>
+    <div class="project-modal-dialog" role="dialog" aria-modal="true" aria-label="Détail du projet">
+      <button type="button" class="project-modal-close" data-close="1" aria-label="Fermer">×</button>
+      <div class="project-modal-layout">
+        <div class="project-modal-visual"></div>
+        <aside class="project-modal-info">
+          <p class="project-modal-meta"></p>
+          <h3 class="project-modal-title"></h3>
+          <p class="project-modal-description"></p>
+          <ul class="project-modal-details"></ul>
+        </aside>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const visual = modal.querySelector(".project-modal-visual");
+  const meta = modal.querySelector(".project-modal-meta");
+  const title = modal.querySelector(".project-modal-title");
+  const description = modal.querySelector(".project-modal-description");
+  const details = modal.querySelector(".project-modal-details");
+
+  if (!(visual instanceof HTMLElement) || !(meta instanceof HTMLElement) || !(title instanceof HTMLElement)
+    || !(description instanceof HTMLElement) || !(details instanceof HTMLElement)) {
+    return null;
+  }
+
+  modal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.dataset.close === "1") {
+      closeProjectModal();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeProjectModal();
+    }
+  });
+
+  modalState = {
+    root: modal,
+    visual,
+    meta,
+    title,
+    description,
+    details,
+  };
+
+  return modalState;
+}
+
+function fillModalDetails(listEl, items) {
+  listEl.innerHTML = items
+    .map((item) => `<li><strong>${escapeHTML(item.label)}:</strong> ${escapeHTML(item.value)}</li>`)
+    .join("");
+}
+
+function openProjectModal(project, mediaIndex = 0) {
+  const modal = ensureProjectModal();
+  if (!modal || !project) {
+    return;
+  }
+
+  const medias = Array.isArray(project.medias) && project.medias.length
+    ? project.medias
+    : [{ src: project.image, type: inferMediaType(project.image) }];
+
+  const safeIndex = Math.max(0, Math.min(medias.length - 1, mediaIndex));
+  const selected = medias[safeIndex];
+
+  let dimensionsText = "Chargement...";
+  const details = [
+    { label: "Type", value: selected.type === "video" ? "Vidéo" : "Image" },
+    { label: "Media", value: `${safeIndex + 1}/${medias.length}` },
+    { label: "Dimensions", value: dimensionsText },
+  ];
+
+  modal.meta.textContent = project.category || "Creation";
+  modal.title.textContent = project.title || "Creation sans titre";
+  modal.description.textContent = project.description || "Aucune description fournie.";
+  fillModalDetails(modal.details, details);
+
+  modal.visual.innerHTML = "";
+
+  if (selected.type === "video") {
+    const video = document.createElement("video");
+    video.src = selected.src;
+    video.controls = true;
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.className = "project-modal-media";
+
+    video.addEventListener("loadedmetadata", () => {
+      dimensionsText = `${video.videoWidth} × ${video.videoHeight}px`;
+      fillModalDetails(modal.details, [
+        { label: "Type", value: "Vidéo" },
+        { label: "Media", value: `${safeIndex + 1}/${medias.length}` },
+        { label: "Dimensions", value: dimensionsText },
+        { label: "Durée", value: `${Math.round(video.duration || 0)}s` },
+      ]);
+    });
+
+    modal.visual.appendChild(video);
+    video.play().catch(() => {});
+  } else {
+    const img = document.createElement("img");
+    img.src = selected.src;
+    img.alt = project.title || "Projet";
+    img.className = "project-modal-media";
+
+    img.addEventListener("load", () => {
+      dimensionsText = `${img.naturalWidth} × ${img.naturalHeight}px`;
+      fillModalDetails(modal.details, [
+        { label: "Type", value: "Image" },
+        { label: "Media", value: `${safeIndex + 1}/${medias.length}` },
+        { label: "Dimensions", value: dimensionsText },
+      ]);
+    });
+
+    modal.visual.appendChild(img);
+  }
+
+  modal.root.removeAttribute("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeProjectModal() {
+  if (!modalState) {
+    return;
+  }
+
+  modalState.root.setAttribute("hidden", "");
+  modalState.visual.querySelectorAll("video").forEach((video) => video.pause());
+  document.body.style.overflow = "";
+}
+
+function setupProjectInteractions() {
+  const cards = Array.from(document.querySelectorAll(".project-card"));
+
+  cards.forEach((card) => {
+    card.addEventListener("pointerenter", (event) => {
+      if (event.pointerType === "mouse") {
+        startCardPreview(card);
+      }
+    });
+
+    card.addEventListener("pointerleave", () => {
+      stopCardPreview(card);
+    });
+
+    card.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "touch" || event.pointerType === "pen") {
+        startCardPreview(card);
+
+        const oldTimeout = touchPreviewTimeouts.get(card);
+        if (oldTimeout) {
+          clearTimeout(oldTimeout);
+        }
+
+        const timeoutId = window.setTimeout(() => {
+          stopCardPreview(card);
+          touchPreviewTimeouts.delete(card);
+        }, 6500);
+
+        touchPreviewTimeouts.set(card, timeoutId);
+      }
+    });
+
+    card.addEventListener("pointerup", (event) => {
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") {
+        return;
+      }
+
+      const cardKey = String(card.dataset.projectIndex || "");
+      const now = Date.now();
+      const elapsed = now - touchTapState.at;
+      const isDoubleTap = touchTapState.cardKey === cardKey && elapsed < 320;
+
+      touchTapState = {
+        cardKey,
+        at: now,
+      };
+
+      if (!isDoubleTap) {
+        return;
+      }
+
+      const projectIndex = Number(card.dataset.projectIndex);
+      if (Number.isNaN(projectIndex)) {
+        return;
+      }
+
+      openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
+      stopCardPreview(card);
+      touchTapState = { cardKey: "", at: 0 };
+    });
+
+    card.addEventListener("dblclick", () => {
+      const projectIndex = Number(card.dataset.projectIndex);
+      if (Number.isNaN(projectIndex)) {
+        return;
+      }
+
+      openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
+      stopCardPreview(card);
+    });
+
+    card.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") {
+        return;
+      }
+
+      event.preventDefault();
+      const projectIndex = Number(card.dataset.projectIndex);
+      if (Number.isNaN(projectIndex)) {
+        return;
+      }
+
+      openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
+    });
+  });
 }
 
 function renderTestimonials() {
@@ -650,8 +1053,5 @@ window.addEventListener("DOMContentLoaded", () => {
   renderTestimonials();
   importProjects();
 });
-
-
-
 
 

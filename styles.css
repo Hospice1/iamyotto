@@ -943,3 +943,186 @@ main p {
 
 
 
+
+.project-card {
+  cursor: pointer;
+}
+
+.project-media-shell {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.project-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.015);
+  transition: opacity 220ms ease, transform 280ms ease;
+  pointer-events: none;
+}
+
+.project-media.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.project-media-count {
+  position: absolute;
+  top: 0.58rem;
+  right: 0.58rem;
+  min-width: 1.8rem;
+  text-align: center;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(17, 17, 17, 0.65);
+  z-index: 2;
+}
+
+.project-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: left;
+}
+
+.project-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.project-modal[hidden] {
+  display: none !important;
+}
+
+.project-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 10, 16, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.project-modal-dialog {
+  position: relative;
+  width: min(100% - 2rem, 1220px);
+  max-height: calc(100vh - 2rem);
+  margin: 1rem auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(16, 20, 30, 0.92);
+  color: #f5f7fb;
+  overflow: hidden;
+  box-shadow: 0 28px 62px rgba(0, 0, 0, 0.45);
+}
+
+.project-modal-close {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 2;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  background: rgba(0, 0, 0, 0.38);
+  color: #fff;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.project-modal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  min-height: min(78vh, 760px);
+}
+
+.project-modal-visual {
+  padding: 1.25rem;
+  display: grid;
+  place-items: center;
+  background: #0f141f;
+}
+
+.project-modal-media {
+  max-width: 100%;
+  max-height: calc(78vh - 2.5rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.project-modal-info {
+  padding: 1.25rem 1.05rem 1.2rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  overflow-y: auto;
+}
+
+.project-modal-meta {
+  margin: 0;
+  color: #b8a4ff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-modal-title {
+  margin: 0.45rem 0 0;
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+}
+
+.project-modal-description {
+  margin: 0.8rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: rgba(245, 247, 251, 0.9);
+  text-align: left;
+}
+
+.project-modal-details {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.project-modal-details li {
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  border-radius: 12px;
+  padding: 0.6rem 0.72rem;
+  font-size: 0.88rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.project-modal-details strong {
+  color: #d6c7ff;
+}
+
+@media (max-width: 840px) {
+  .project-modal-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .project-modal-info {
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .project-modal-media {
+    max-height: 54vh;
+  }
+}
