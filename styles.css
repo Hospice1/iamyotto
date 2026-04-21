@@ -388,6 +388,78 @@ main > section {
   background: #1fb458;
 }
 
+.whatsapp-widget {
+  position: fixed;
+  right: clamp(0.75rem, 2vw, 1.2rem);
+  bottom: clamp(0.75rem, 2vw, 1.2rem);
+  z-index: 80;
+  display: grid;
+  justify-items: end;
+  gap: 0.55rem;
+}
+
+.whatsapp-message {
+  position: relative;
+  max-width: min(320px, calc(100vw - 2rem));
+  border: 1px solid rgba(37, 211, 102, 0.34);
+  border-radius: 14px;
+  background: rgba(18, 24, 34, 0.96);
+  color: #fff;
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.3);
+  padding: 0.62rem 0.78rem;
+}
+
+.whatsapp-message[hidden] {
+  display: none !important;
+}
+
+.whatsapp-message p {
+  margin: 0;
+  padding-right: 1rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.whatsapp-message-close {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.2rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.whatsapp-fab {
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: #25d366;
+  box-shadow: 0 12px 24px rgba(37, 211, 102, 0.35);
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.whatsapp-fab:hover,
+.whatsapp-fab:focus-visible {
+  background: #1fb458;
+  transform: translateY(-2px);
+  box-shadow: 0 16px 26px rgba(37, 211, 102, 0.4);
+}
+
+.whatsapp-fab svg {
+  width: 31px;
+  height: 31px;
+  fill: #fff;
+}
+
 .btn-primary:hover,
 .btn-primary:focus-visible,
 .btn-secondary:hover,
@@ -507,6 +579,8 @@ main p {
 .projects-footer {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
   margin-top: 1rem;
 }
 
@@ -598,6 +672,8 @@ main p {
 .testimonial-footer {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .testimonial-intro {
@@ -680,6 +756,26 @@ main p {
   gap: 0.33rem;
   font-weight: 650;
   text-align: left;
+}
+
+.required-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.required-input-wrap input {
+  padding-right: 1.6rem;
+}
+
+.required-star {
+  position: absolute;
+  top: 0.48rem;
+  right: 0.62rem;
+  color: #e11d48;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .rating-picker {
@@ -946,6 +1042,15 @@ main p {
   .proof-stats,
   .testimonials-grid {
     grid-template-columns: 1fr;
+  }
+
+  .whatsapp-message {
+    max-width: min(82vw, 290px);
+  }
+
+  .whatsapp-fab {
+    width: 54px;
+    height: 54px;
   }
 }
 

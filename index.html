@@ -101,6 +101,7 @@
 
       <div class="projects-footer">
         <button id="projects-toggle" type="button" class="btn-secondary btn-small" hidden>Voir plus</button>
+        <button id="projects-toggle-less" type="button" class="btn-secondary btn-small" hidden>Voir moins</button>
       </div>
     </section>
 
@@ -122,20 +123,24 @@
       </div>
 
       <div class="testimonial-controls">
-        <p class="testimonial-intro">Avis clients fictifs et réels (modération via admin).</p>
+        <p class="testimonial-intro">Avis clients</p>
       </div>
 
       <div id="testimonials-grid" class="testimonials-grid" aria-live="polite"></div>
 
       <div class="testimonial-footer">
         <button id="testimonials-toggle" type="button" class="btn-secondary btn-small" hidden>Voir plus</button>
+        <button id="testimonials-toggle-less" type="button" class="btn-secondary btn-small" hidden>Voir moins</button>
       </div>
 
       <form id="testimonial-form" class="testimonial-form">
         <h3>Laisser un témoignage</h3>
         <label>
-          Votre nom
-          <input type="text" name="name" placeholder="Nom obligatoire" required />
+          Votre nom et prenom
+          <span class="required-input-wrap">
+            <input type="text" name="name" placeholder="Nom et prenom" required />
+            <span class="required-star" aria-hidden="true">*</span>
+          </span>
         </label>
         <label>
           Votre avis (étoiles)
@@ -153,7 +158,7 @@
           <textarea name="message" rows="4" placeholder="Partagez votre expérience" required></textarea>
         </label>
         <button type="submit" class="btn-primary">Envoyer mon témoignage</button>
-        <p id="testimonial-status" class="testimonial-status">Votre nom est obligatoire pour publier un avis.</p>
+        <p id="testimonial-status" class="testimonial-status" aria-live="polite"></p>
       </form>
     </section>
 
@@ -198,6 +203,19 @@
       <a href="#contact">Contact</a>
     </nav>
   </footer>
+
+
+  <div id="whatsapp-widget" class="whatsapp-widget">
+    <div id="whatsapp-message" class="whatsapp-message" hidden>
+      <button id="whatsapp-message-close" class="whatsapp-message-close" type="button" aria-label="Fermer le message WhatsApp">×</button>
+      <p>Contactez-moi sur WhatsApp pour votre projet.</p>
+    </div>
+    <a class="whatsapp-fab" href="https://wa.me/22940175015" target="_blank" rel="noopener noreferrer" aria-label="Contacter sur WhatsApp">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M20.52 3.48A11.8 11.8 0 0 0 12.06 0C5.55 0 .26 5.28.26 11.79c0 2.08.54 4.12 1.58 5.92L0 24l6.45-1.69a11.8 11.8 0 0 0 5.61 1.43h.01c6.5 0 11.79-5.28 11.79-11.79 0-3.15-1.23-6.11-3.34-8.47Zm-8.46 18.2h-.01a9.8 9.8 0 0 1-4.98-1.36l-.36-.21-3.83 1 1.02-3.74-.24-.38a9.73 9.73 0 0 1-1.5-5.2c0-5.39 4.39-9.78 9.79-9.78 2.62 0 5.08 1.02 6.93 2.88a9.72 9.72 0 0 1 2.86 6.92c0 5.39-4.39 9.78-9.78 9.78Zm5.36-7.33c-.29-.14-1.71-.84-1.98-.94-.27-.1-.47-.14-.66.15-.2.29-.76.94-.93 1.14-.17.2-.34.22-.63.07-.29-.14-1.24-.46-2.37-1.46a8.9 8.9 0 0 1-1.64-2.04c-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.2-.29.29-.48.1-.2.05-.37-.02-.52-.08-.14-.66-1.59-.91-2.18-.24-.58-.48-.5-.66-.5-.17-.01-.37-.01-.56-.01-.2 0-.52.07-.79.37-.27.29-1.04 1.02-1.04 2.5 0 1.47 1.06 2.89 1.21 3.09.15.2 2.09 3.2 5.06 4.48.71.3 1.27.48 1.7.61.72.23 1.37.2 1.89.12.58-.09 1.71-.7 1.95-1.37.24-.67.24-1.25.17-1.37-.07-.12-.27-.2-.56-.34Z" />
+      </svg>
+    </a>
+  </div>
 
   <script src="media-store.js" defer></script>
   <script src="script.js" defer></script>

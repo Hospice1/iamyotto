@@ -80,15 +80,18 @@ const projectGrid = document.getElementById("project-grid");
 const importStatus = document.getElementById("import-status");
 const heroProjectsButton = document.getElementById("hero-projects-btn");
 const projectsToggle = document.getElementById("projects-toggle");
+const projectsToggleLess = document.getElementById("projects-toggle-less");
 
 const testimonialsGrid = document.getElementById("testimonials-grid");
 const testimonialsToggle = document.getElementById("testimonials-toggle");
+const testimonialsToggleLess = document.getElementById("testimonials-toggle-less");
 const testimonialForm = document.getElementById("testimonial-form");
 const testimonialStatus = document.getElementById("testimonial-status");
 const contactForm = document.getElementById("contact-form");
 const contactStatus = document.getElementById("contact-status");
 const proofProjectCount = document.getElementById("proof-project-count");
-
+const whatsappMessage = document.getElementById("whatsapp-message");
+const whatsappMessageClose = document.getElementById("whatsapp-message-close");
 const themeToggle = document.getElementById("theme-toggle");
 const themeMenu = document.getElementById("theme-menu");
 const themeOptions = Array.from(document.querySelectorAll(".theme-option"));
@@ -111,6 +114,7 @@ let touchTapState = {
   cardKey: "",
   at: 0,
 };
+let whatsappMessageDismissed = false;
 
 async function loadCatalogData() {
   const response = await fetch("data.json", { cache: "no-store" });
@@ -538,6 +542,9 @@ function renderProjects(projects, preservePagination = false) {
     if (projectsToggle) {
       projectsToggle.hidden = true;
     }
+    if (projectsToggleLess) {
+      projectsToggleLess.hidden = true;
+    }
     return;
   }
 
@@ -582,6 +589,12 @@ function renderProjects(projects, preservePagination = false) {
     const canShowMore = shownProjects.length < projects.length;
     projectsToggle.hidden = !canShowMore;
     projectsToggle.textContent = "Voir plus";
+  }
+
+  if (projectsToggleLess) {
+    const canShowLess = projects.length > PROJECT_INITIAL_COUNT && clampedVisibleCount > PROJECT_INITIAL_COUNT;
+    projectsToggleLess.hidden = !canShowLess;
+    projectsToggleLess.textContent = "Voir moins";
   }
 
   setupProjectInteractions();
@@ -924,6 +937,15 @@ function setupProjectsToggle() {
     visibleProjectCount = Math.min(renderedProjects.length, visibleProjectCount + PROJECT_STEP_COUNT);
     renderProjects(renderedProjects, true);
   });
+
+  projectsToggleLess?.addEventListener("click", () => {
+    if (!renderedProjects.length) {
+      return;
+    }
+
+    visibleProjectCount = PROJECT_INITIAL_COUNT;
+    renderProjects(renderedProjects, true);
+  });
 }
 
 function renderTestimonials(preservePagination = false) {
@@ -942,6 +964,9 @@ function renderTestimonials(preservePagination = false) {
   if (!shown.length) {
     testimonialsGrid.innerHTML = '<p class="testimonial-empty">Aucun temoignage disponible.</p>';
     testimonialsToggle.hidden = true;
+    if (testimonialsToggleLess) {
+      testimonialsToggleLess.hidden = true;
+    }
     return;
   }
 
@@ -959,6 +984,11 @@ function renderTestimonials(preservePagination = false) {
 
   testimonialsToggle.hidden = visibleTestimonials.length <= visibleTestimonialCount;
   testimonialsToggle.textContent = "Voir plus";
+
+  if (testimonialsToggleLess) {
+    testimonialsToggleLess.hidden = visibleTestimonialCount <= TESTIMONIAL_INITIAL_COUNT;
+    testimonialsToggleLess.textContent = "Voir moins";
+  }
 }
 async function importProjects() {
   let catalogProjects = [];
@@ -1134,6 +1164,11 @@ function setupTestimonialForm() {
     visibleTestimonialCount = Math.min(total, visibleTestimonialCount + TESTIMONIAL_STEP_COUNT);
     renderTestimonials(true);
   });
+
+  testimonialsToggleLess?.addEventListener("click", () => {
+    visibleTestimonialCount = TESTIMONIAL_INITIAL_COUNT;
+    renderTestimonials(true);
+  });
 }
 
 function setupScrollReveal() {
@@ -1279,41 +1314,76 @@ function setupActiveNav() {
     return;
   }
 
-  const sectionIds = [...new Set(allLinks.map((link) => link.getAttribute("href").slice(1)))];
-  const sections = sectionIds.map((id) => document.getElementById(id)).filter(Boolean);
+  const sectionIds = [...new Set(
+    allLinks
+      .map((link) => String(link.getAttribute("href") || "").replace(/^#/, ""))
+      .filter(Boolean)
+  )];
+  const sections = sectionIds
+    .map((id) => document.getElementById(id))
+    .filter((section) => section instanceof HTMLElement);
+
+  if (!sections.length) {
+    return;
+  }
 
   function setActive(sectionId) {
     allLinks.forEach((link) => {
-      const targetId = link.getAttribute("href").slice(1);
+      const targetId = String(link.getAttribute("href") || "").replace(/^#/, "");
       link.classList.toggle("is-active", targetId === sectionId);
     });
 
     if (heroProjectsButton) {
-      heroProjectsButton.classList.toggle("is-glass-active", sectionId === "projects");
+      heroProjectsButton.classList.toggle("is-glass-active", sectionId === "projects" || sectionId === "proof");
     }
   }
 
-  setActive("hero");
+  function detectActiveSection() {
+    const marker = window.innerHeight * 0.32;
+    let activeId = sections[0].id;
 
-  const observer = new IntersectionObserver(
-    (entries) => {
-      const visible = entries
-        .filter((entry) => entry.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-
-      if (visible?.target?.id) {
-        setActive(visible.target.id);
+    sections.forEach((section) => {
+      const rect = section.getBoundingClientRect();
+      if (rect.top <= marker && rect.bottom >= marker) {
+        activeId = section.id;
+      } else if (rect.top < marker) {
+        activeId = section.id;
       }
-    },
-    {
-      rootMargin: "-35% 0px -45% 0px",
-      threshold: [0.15, 0.35, 0.6],
-    }
-  );
+    });
 
-  sections.forEach((section) => observer.observe(section));
+    setActive(activeId);
+  }
+
+  detectActiveSection();
+  window.addEventListener("scroll", detectActiveSection, { passive: true });
+  window.addEventListener("resize", detectActiveSection);
 }
+function setupWhatsappWidget() {
+  if (!whatsappMessage || !whatsappMessageClose) {
+    return;
+  }
 
+  const revealMessage = () => {
+    if (whatsappMessageDismissed) {
+      return;
+    }
+
+    if (window.scrollY < 110) {
+      return;
+    }
+
+    whatsappMessage.hidden = false;
+    window.removeEventListener("scroll", revealMessage);
+  };
+
+  whatsappMessageClose.addEventListener("click", () => {
+    whatsappMessageDismissed = true;
+    whatsappMessage.hidden = true;
+    window.removeEventListener("scroll", revealMessage);
+  });
+
+  window.addEventListener("scroll", revealMessage, { passive: true });
+}
 window.addEventListener("storage", (event) => {
   if (event.key === ADMIN_PROJECTS_KEY) {
     importProjects();
@@ -1341,6 +1411,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupThemeSwitcher();
   setupScrollReveal();
   setupActiveNav();
+  setupWhatsappWidget();
   setupProjectsToggle();
   setupTestimonialForm();
   setupContactForm();
