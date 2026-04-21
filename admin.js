@@ -138,6 +138,7 @@ function normalizeProject(item) {
 
   const category = String(item?.category || item?.categorie || "Creation").trim();
   const title = String(item?.title || item?.titre || "Creation sans titre").trim();
+  const catalogRef = String(item?.catalogRef || "").trim();
 
   return {
     id: String(item?.id || createProjectId()),
@@ -145,25 +146,42 @@ function normalizeProject(item) {
     title: title || "Creation sans titre",
     image: String(firstImage || "assets/project-01.jpg"),
     createdAt: item?.createdAt || new Date().toISOString(),
+    catalogRef,
   };
 }
 
-function normalizeProjectsArray(list) {
+function createCatalogRef(item, index, sourceLabel) {
+  const explicit = String(item?.catalogRef || item?.id || item?.sku || item?.code || "").trim();
+  if (explicit) {
+    return `${sourceLabel}:${explicit}`;
+  }
+
+  return `${sourceLabel}:${index}`;
+}
+
+function normalizeProjectsArray(list, options = {}) {
   if (!Array.isArray(list)) {
     return [];
   }
 
-  return list.map(normalizeProject).filter((item) => Boolean(item.title));
+  const sourceLabel = String(options.sourceLabel || "catalog");
+
+  return list
+    .map((item, index) => normalizeProject({
+      ...item,
+      catalogRef: item?.catalogRef || createCatalogRef(item, index, sourceLabel),
+    }))
+    .filter((entry) => Boolean(entry.title));
 }
 
 function mapWhatsAppLikePayload(data) {
   const sourceType = data?.source?.type || "json";
 
   if (sourceType === "whatsapp" && Array.isArray(data?.source?.products)) {
-    return normalizeProjectsArray(data.source.products);
+    return normalizeProjectsArray(data.source.products, { sourceLabel: "whatsapp" });
   }
 
-  return normalizeProjectsArray(data?.products);
+  return normalizeProjectsArray(data?.products, { sourceLabel: "catalog" });
 }
 
 async function loadCatalogProjects() {
@@ -198,15 +216,41 @@ async function mergeCatalogIntoAdminProjects() {
     return catalogProjects;
   }
 
-  const existingSignatures = new Set(existing.map(projectSignature));
-  const missingFromCatalog = catalogProjects.filter((item) => !existingSignatures.has(projectSignature(item)));
+  const merged = [...existing];
+  let changed = false;
 
-  if (!missingFromCatalog.length) {
-    return existing;
+  catalogProjects.forEach((catalogProject) => {
+    const ref = String(catalogProject.catalogRef || "").trim();
+
+    let matchIndex = ref
+      ? merged.findIndex((item) => String(item.catalogRef || "").trim() === ref)
+      : -1;
+
+    if (matchIndex < 0) {
+      const signature = projectSignature(catalogProject);
+      matchIndex = merged.findIndex(
+        (item) => !String(item.catalogRef || "").trim() && projectSignature(item) === signature
+      );
+
+      if (matchIndex >= 0) {
+        merged[matchIndex] = normalizeProject({
+          ...merged[matchIndex],
+          catalogRef: ref,
+        });
+        changed = true;
+      }
+    }
+
+    if (matchIndex < 0) {
+      merged.push(catalogProject);
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    saveProjects(merged);
   }
 
-  const merged = [...existing, ...missingFromCatalog];
-  saveProjects(merged);
   return merged;
 }
 
@@ -245,7 +289,7 @@ function loadProjects() {
     const normalized = parsed.map(normalizeProject);
     const needsMigration = parsed.some((item, index) => {
       const normalizedItem = normalized[index];
-      return !item?.id || !item?.title || !item?.category || item?.image !== normalizedItem.image;
+      return !item?.id || !item?.title || !item?.category || item?.image !== normalizedItem.image || String(item?.catalogRef || "") !== String(normalizedItem.catalogRef || "");
     });
 
     if (needsMigration) {
@@ -685,3 +729,4 @@ window.addEventListener("DOMContentLoaded", async () => {
     lockAdmin();
   }
 });
+
