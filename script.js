@@ -286,24 +286,30 @@ async function importProjects() {
   }
 
   const adminProjects = loadAdminProjects();
-  const mergedProjects = [...adminProjects, ...catalogProjects];
-  renderProjects(mergedProjects);
+  const usingAdminProjects = adminProjects.length > 0;
+  const visibleProjects = usingAdminProjects ? adminProjects : catalogProjects;
+  renderProjects(visibleProjects);
 
   if (!importStatus) {
     return;
   }
 
-  if (catalogError && !mergedProjects.length) {
+  if (catalogError && !visibleProjects.length) {
     importStatus.textContent = "Erreur d’import: verifiez data.json";
     return;
   }
 
-  if (catalogError) {
-    importStatus.textContent = `${adminProjects.length} creation(s) admin affichee(s)`;
+  if (usingAdminProjects) {
+    importStatus.textContent = `${adminProjects.length} projet(s) geres depuis l'admin`;
     return;
   }
 
-  importStatus.textContent = `${mergedProjects.length} projet(s) affiches dont ${adminProjects.length} depuis l'admin`;
+  if (catalogError) {
+    importStatus.textContent = "Catalogue indisponible.";
+    return;
+  }
+
+  importStatus.textContent = `${catalogProjects.length} projet(s) depuis data.json`;
 }
 
 function setupRatingPicker() {
@@ -644,6 +650,7 @@ window.addEventListener("DOMContentLoaded", () => {
   renderTestimonials();
   importProjects();
 });
+
 
 
 

@@ -43,8 +43,10 @@
       </header>
 
       <section class="admin-panel">
-        <h2>Nouvelle création</h2>
+        <h2>Créer / modifier une création</h2>
         <form id="admin-form" class="admin-form">
+          <input id="edit-project-id" type="hidden" name="projectId" value="" />
+
           <label>
             Catégorie
             <input type="text" name="categorie" placeholder="Ex: Branding, Print, Social Media" required />
@@ -56,12 +58,13 @@
           </label>
 
           <label>
-            Importer une ou plusieurs images
-            <input id="image-files" type="file" accept="image/*" multiple required />
+            Importer une ou plusieurs images (optionnel en modification)
+            <input id="image-files" type="file" accept="image/*" multiple />
           </label>
 
           <div class="admin-actions">
-            <button type="submit" class="btn-primary">Ajouter la création</button>
+            <button id="submit-project-btn" type="submit" class="btn-primary">Ajouter la création</button>
+            <button id="cancel-edit" type="button" class="btn-ghost" hidden>Annuler la modification</button>
             <button id="clear-all" type="button" class="btn-ghost">Tout supprimer</button>
           </div>
         </form>
@@ -87,4 +90,3 @@
   <script src="admin.js" defer></script>
 </body>
 </html>
-

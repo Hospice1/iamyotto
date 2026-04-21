@@ -241,17 +241,32 @@ h3 {
   text-transform: uppercase;
 }
 
+.admin-item-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
 
+.edit-btn,
 .delete-btn,
 .delete-testimonial-btn {
   margin-top: 0.55rem;
-  border: 1px solid rgba(200, 35, 35, 0.32);
-  color: #b91c1c;
-  background: #fff;
   border-radius: 999px;
   padding: 0.34rem 0.7rem;
   font-weight: 700;
   cursor: pointer;
+  background: #fff;
+}
+
+.edit-btn {
+  border: 1px solid rgba(91, 33, 182, 0.32);
+  color: var(--accent);
+}
+
+.delete-btn,
+.delete-testimonial-btn {
+  border: 1px solid rgba(200, 35, 35, 0.32);
+  color: #b91c1c;
 }
 
 .testimonial-admin-item {
@@ -331,5 +346,3 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
-
-

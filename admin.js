@@ -2,6 +2,7 @@
 const TESTIMONIALS_KEY = "iamyotto_testimonials";
 const ADMIN_SESSION_KEY = "iamyotto_admin_session";
 const ADMIN_PASSWORD = "AZERTY1234";
+const CATALOG_PATH = "data.json";
 
 const INITIAL_TESTIMONIALS = [
   {
@@ -86,6 +87,11 @@ const statusBox = document.getElementById("admin-status");
 const list = document.getElementById("admin-list");
 const clearAllBtn = document.getElementById("clear-all");
 const imageFilesInput = document.getElementById("image-files");
+const editProjectIdInput = document.getElementById("edit-project-id");
+const submitProjectBtn = document.getElementById("submit-project-btn");
+const cancelEditBtn = document.getElementById("cancel-edit");
+const categoryInput = form?.querySelector('input[name="categorie"]');
+const titleInput = form?.querySelector('input[name="titre"]');
 
 const testimonialList = document.getElementById("testimonial-list");
 const testimonialStatus = document.getElementById("testimonial-status");
@@ -104,13 +110,15 @@ function lockAdmin() {
   }
 }
 
-function unlockAdmin() {
+async function unlockAdmin() {
   if (loginGate) {
     loginGate.hidden = true;
   }
   if (adminApp) {
     adminApp.hidden = false;
   }
+
+  await mergeCatalogIntoAdminProjects();
   renderProjectList();
   renderTestimonialList();
 }
@@ -138,6 +146,68 @@ function normalizeProject(item) {
     image: String(firstImage || "assets/project-01.jpg"),
     createdAt: item?.createdAt || new Date().toISOString(),
   };
+}
+
+function normalizeProjectsArray(list) {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+
+  return list.map(normalizeProject).filter((item) => Boolean(item.title));
+}
+
+function mapWhatsAppLikePayload(data) {
+  const sourceType = data?.source?.type || "json";
+
+  if (sourceType === "whatsapp" && Array.isArray(data?.source?.products)) {
+    return normalizeProjectsArray(data.source.products);
+  }
+
+  return normalizeProjectsArray(data?.products);
+}
+
+async function loadCatalogProjects() {
+  try {
+    const response = await fetch(CATALOG_PATH, { cache: "no-store" });
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    return mapWhatsAppLikePayload(data);
+  } catch (error) {
+    console.error("Erreur de chargement du catalogue", error);
+    return [];
+  }
+}
+
+function projectSignature(project) {
+  return `${String(project.title || "").trim().toLowerCase()}|${String(project.category || "").trim().toLowerCase()}|${String(project.image || "").trim()}`;
+}
+
+async function mergeCatalogIntoAdminProjects() {
+  const existing = loadProjects();
+  const catalogProjects = await loadCatalogProjects();
+
+  if (!catalogProjects.length) {
+    return existing;
+  }
+
+  if (!existing.length) {
+    saveProjects(catalogProjects);
+    return catalogProjects;
+  }
+
+  const existingSignatures = new Set(existing.map(projectSignature));
+  const missingFromCatalog = catalogProjects.filter((item) => !existingSignatures.has(projectSignature(item)));
+
+  if (!missingFromCatalog.length) {
+    return existing;
+  }
+
+  const merged = [...existing, ...missingFromCatalog];
+  saveProjects(merged);
+  return merged;
 }
 
 function normalizeTestimonial(item) {
@@ -237,6 +307,47 @@ function isNegativeOrAbusive(testimonial) {
   return lowRating || bannedPattern.test(text);
 }
 
+function setCreateMode() {
+  if (editProjectIdInput) {
+    editProjectIdInput.value = "";
+  }
+  if (submitProjectBtn) {
+    submitProjectBtn.textContent = "Ajouter la création";
+  }
+  if (cancelEditBtn) {
+    cancelEditBtn.hidden = true;
+  }
+}
+
+function setEditMode(project) {
+  if (!project || !(categoryInput instanceof HTMLInputElement) || !(titleInput instanceof HTMLInputElement)) {
+    return;
+  }
+
+  if (editProjectIdInput) {
+    editProjectIdInput.value = project.id;
+  }
+  categoryInput.value = project.category;
+  titleInput.value = project.title;
+
+  if (imageFilesInput) {
+    imageFilesInput.value = "";
+  }
+
+  if (submitProjectBtn) {
+    submitProjectBtn.textContent = "Enregistrer la modification";
+  }
+  if (cancelEditBtn) {
+    cancelEditBtn.hidden = false;
+  }
+
+  if (statusBox) {
+    statusBox.textContent = "Mode modification actif. Modifiez les champs puis enregistrez.";
+  }
+
+  form?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function renderProjectList() {
   if (!list) {
     return;
@@ -257,7 +368,10 @@ function renderProjectList() {
         <div class="admin-item-body">
           <p class="admin-category">${escapeHTML(project.category)}</p>
           <h3>${escapeHTML(project.title)}</h3>
-          <button class="delete-btn" type="button" data-id="${escapeHTML(project.id)}">Supprimer</button>
+          <div class="admin-item-actions">
+            <button class="edit-btn" type="button" data-id="${escapeHTML(project.id)}">Modifier</button>
+            <button class="delete-btn" type="button" data-id="${escapeHTML(project.id)}">Supprimer</button>
+          </div>
         </div>
       </article>
     `
@@ -310,7 +424,7 @@ function readImageAsDataURL(file) {
   });
 }
 
-loginForm?.addEventListener("submit", (event) => {
+loginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const value = String(loginPassword?.value || "").trim();
@@ -325,12 +439,14 @@ loginForm?.addEventListener("submit", (event) => {
   if (loginPassword) {
     loginPassword.value = "";
   }
-  unlockAdmin();
+  await unlockAdmin();
 });
 
 logoutBtn?.addEventListener("click", () => {
   sessionStorage.removeItem(ADMIN_SESSION_KEY);
   lockAdmin();
+  setCreateMode();
+  form?.reset();
   if (loginStatus) {
     loginStatus.textContent = "Connexion requise.";
   }
@@ -340,6 +456,7 @@ form?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const data = new FormData(form);
+  const projectId = String(data.get("projectId") || "").trim();
   const category = String(data.get("categorie") || "").trim();
   const title = String(data.get("titre") || "").trim();
   const files = Array.from(imageFilesInput?.files || []);
@@ -348,6 +465,58 @@ form?.addEventListener("submit", async (event) => {
     if (statusBox) {
       statusBox.textContent = "Categorie et titre sont obligatoires.";
     }
+    return;
+  }
+
+  const projects = loadProjects();
+
+  if (projectId) {
+    const index = projects.findIndex((item) => item.id === projectId);
+    if (index < 0) {
+      if (statusBox) {
+        statusBox.textContent = "Creation introuvable. Rechargez la page.";
+      }
+      setCreateMode();
+      return;
+    }
+
+    const currentProject = projects[index];
+    let nextImage = currentProject.image;
+
+    if (files.length) {
+      try {
+        nextImage = await readImageAsDataURL(files[0]);
+      } catch {
+        if (statusBox) {
+          statusBox.textContent = "Impossible de lire la nouvelle image.";
+        }
+        return;
+      }
+    }
+
+    projects[index] = normalizeProject({
+      ...currentProject,
+      id: currentProject.id,
+      category,
+      title,
+      image: nextImage,
+      createdAt: currentProject.createdAt,
+    });
+
+    saveProjects(projects);
+    form.reset();
+    if (imageFilesInput) {
+      imageFilesInput.value = "";
+    }
+    setCreateMode();
+
+    if (statusBox) {
+      statusBox.textContent = files.length
+        ? "Creation modifiee (titre/categorie/image)."
+        : "Creation modifiee (titre/categorie).";
+    }
+
+    renderProjectList();
     return;
   }
 
@@ -374,13 +543,14 @@ form?.addEventListener("submit", async (event) => {
     image,
   }));
 
-  const projects = [...newProjects, ...loadProjects()];
-  saveProjects(projects);
+  const mergedProjects = [...newProjects, ...projects];
+  saveProjects(mergedProjects);
 
   form.reset();
   if (imageFilesInput) {
     imageFilesInput.value = "";
   }
+  setCreateMode();
 
   if (statusBox) {
     statusBox.textContent = `${newProjects.length} creation(s) ajoutee(s). Elles sont visibles dans la section Projets du portfolio.`;
@@ -388,14 +558,42 @@ form?.addEventListener("submit", async (event) => {
   renderProjectList();
 });
 
+cancelEditBtn?.addEventListener("click", () => {
+  form?.reset();
+  if (imageFilesInput) {
+    imageFilesInput.value = "";
+  }
+  setCreateMode();
+  if (statusBox) {
+    statusBox.textContent = "Mode modification annule.";
+  }
+});
+
 list?.addEventListener("click", (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLElement) || !target.classList.contains("delete-btn")) {
+  if (!(target instanceof HTMLElement)) {
     return;
   }
 
   const projectId = String(target.dataset.id || "").trim();
   if (!projectId) {
+    return;
+  }
+
+  if (target.classList.contains("edit-btn")) {
+    const project = loadProjects().find((item) => item.id === projectId);
+    if (!project) {
+      if (statusBox) {
+        statusBox.textContent = "Creation introuvable.";
+      }
+      return;
+    }
+
+    setEditMode(project);
+    return;
+  }
+
+  if (!target.classList.contains("delete-btn")) {
     return;
   }
 
@@ -406,6 +604,14 @@ list?.addEventListener("click", (event) => {
   }
 
   saveProjects(filtered);
+  if (editProjectIdInput?.value === projectId) {
+    form?.reset();
+    if (imageFilesInput) {
+      imageFilesInput.value = "";
+    }
+    setCreateMode();
+  }
+
   if (statusBox) {
     statusBox.textContent = "Creation supprimee.";
   }
@@ -452,25 +658,30 @@ removeBadBtn?.addEventListener("click", () => {
 });
 
 clearAllBtn?.addEventListener("click", () => {
-  const confirmed = window.confirm("Supprimer toutes les creations ajoutees depuis l'admin ?");
+  const confirmed = window.confirm("Supprimer toutes les creations de la section Projets ?");
   if (!confirmed) {
     return;
   }
 
   saveProjects([]);
+  form?.reset();
+  if (imageFilesInput) {
+    imageFilesInput.value = "";
+  }
+  setCreateMode();
   if (statusBox) {
     statusBox.textContent = "Toutes les creations ont ete supprimees.";
   }
   renderProjectList();
 });
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   ensureTestimonialsSeeded();
+  setCreateMode();
 
   if (isAuthenticated()) {
-    unlockAdmin();
+    await unlockAdmin();
   } else {
     lockAdmin();
   }
 });
-
