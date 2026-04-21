@@ -313,7 +313,22 @@ function projectSignature(project) {
 
 function isSeedCatalogProject(project) {
   const ref = String(project?.catalogRef || "").trim().toLowerCase();
-  return ref.startsWith("catalog:") || ref.startsWith("whatsapp:");
+
+  const title = String(project?.title || project?.titre || "").trim().toLowerCase();
+  const category = String(project?.category || project?.categorie || "").trim().toLowerCase();
+  const firstSrc = String(project?.medias?.[0]?.src || project?.image || "").trim().toLowerCase();
+
+  const isLegacySeed = (
+    (title === "brand identity pack" && category === "branding")
+    || (title === "design social media premium" && category === "social media")
+    || (title === "portfolio / landing page design" && category === "web design")
+  ) && (
+    firstSrc.endsWith("assets/project-01.jpg")
+    || firstSrc.endsWith("assets/project-02.png")
+    || firstSrc.endsWith("assets/project-03.jpg")
+  );
+
+  return ref.startsWith("catalog:") || ref.startsWith("whatsapp:") || isLegacySeed;
 }
 
 function purgeSeededCatalogProjects() {
