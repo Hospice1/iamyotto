@@ -107,6 +107,7 @@ const testimonialStatus = document.getElementById("testimonial-status");
 const removeBadBtn = document.getElementById("remove-bad-testimonials");
 
 let editMediaDraft = [];
+const adminBlobUrls = new Set();
 
 function cloneJSON(value) {
   return JSON.parse(JSON.stringify(value));
@@ -117,6 +118,8 @@ function isAuthenticated() {
 }
 
 function lockAdmin() {
+  clearAdminBlobUrls();
+
   if (adminApp) {
     adminApp.hidden = true;
   }
@@ -133,6 +136,7 @@ async function unlockAdmin() {
     adminApp.hidden = false;
   }
 
+  await migrateProjectsMediaToIndexedDb();
   await mergeCatalogIntoAdminProjects();
   renderProjectList();
   renderHistoryList();
@@ -177,6 +181,19 @@ function normalizeMediaEntry(entry) {
     return {
       src,
       type: inferMediaType(src),
+    };
+  }
+
+  const storage = String(entry?.storage || "").trim();
+  const id = String(entry?.id || "").trim();
+
+  if (storage === "idb" && id) {
+    return {
+      storage: "idb",
+      id,
+      type: entry?.type === "video" ? "video" : "image",
+      name: String(entry?.name || ""),
+      size: Number(entry?.size || 0) || 0,
     };
   }
 
@@ -228,7 +245,7 @@ function normalizeProject(item) {
     category: category || "Creation",
     title: title || "Creation sans titre",
     description,
-    image: medias[0].src,
+    image: String(medias[0]?.src || ""),
     medias,
     createdAt: item?.createdAt || new Date().toISOString(),
     catalogRef,
@@ -411,6 +428,135 @@ function saveProjects(projects) {
   }
 }
 
+function getMediaStore() {
+  const store = window.IamyottoMediaStore;
+  if (!store) {
+    return null;
+  }
+  return store;
+}
+
+function clearAdminBlobUrls() {
+  adminBlobUrls.forEach((url) => URL.revokeObjectURL(url));
+  adminBlobUrls.clear();
+}
+
+async function resolveAdminMediaSrc(media) {
+  if (!media) {
+    return "";
+  }
+
+  if (media.storage === "idb" && media.id) {
+    const store = getMediaStore();
+    if (!store?.getObjectURLById) {
+      return "";
+    }
+
+    const url = await store.getObjectURLById(media.id);
+    if (url) {
+      adminBlobUrls.add(url);
+    }
+    return url || "";
+  }
+
+  return String(media.src || "");
+}
+
+async function hydrateAdminMediaElements() {
+  clearAdminBlobUrls();
+
+  const nodes = Array.from(document.querySelectorAll("[data-admin-media='1']"));
+  for (const node of nodes) {
+    if (!(node instanceof HTMLImageElement) && !(node instanceof HTMLVideoElement)) {
+      continue;
+    }
+
+    const storage = String(node.dataset.storage || "");
+    const mediaId = String(node.dataset.mediaId || "");
+    const inlineSrc = String(node.dataset.inlineSrc || "");
+
+    let src = inlineSrc;
+    if (storage === "idb" && mediaId) {
+      src = await resolveAdminMediaSrc({ storage: "idb", id: mediaId });
+    }
+
+    if (!src) {
+      continue;
+    }
+
+    node.src = src;
+  }
+}
+
+async function dataUrlToBlob(dataUrl) {
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
+async function migrateProjectsMediaToIndexedDb() {
+  const store = getMediaStore();
+  if (!store?.saveBlob) {
+    return;
+  }
+
+  const projects = loadProjects();
+  if (!projects.length) {
+    return;
+  }
+
+  let changed = false;
+
+  for (const project of projects) {
+    const nextMedias = [];
+
+    for (const media of project.medias || []) {
+      if (media?.storage === "idb" && media?.id) {
+        nextMedias.push(media);
+        continue;
+      }
+
+      const src = String(media?.src || "");
+      if (!src) {
+        continue;
+      }
+
+      if (src.startsWith("data:")) {
+        try {
+          const blob = await dataUrlToBlob(src);
+          const saved = await store.saveBlob(blob, {
+            type: media?.type || inferMediaType(src),
+            name: "migrated-media",
+          });
+
+          if (saved) {
+            nextMedias.push(saved);
+            changed = true;
+            continue;
+          }
+        } catch (error) {
+          console.error("Migration media dataURL vers IndexedDB echouee", error);
+        }
+      }
+
+      nextMedias.push(media);
+    }
+
+    if (!nextMedias.length) {
+      nextMedias.push({ src: project.image || "assets/project-01.jpg", type: "image" });
+    }
+
+    if (JSON.stringify(nextMedias) !== JSON.stringify(project.medias || [])) {
+      project.medias = nextMedias;
+      project.image = String(nextMedias[0]?.src || project.image || "");
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveProjects(projects);
+  }
+}
+
 function loadHistory() {
   try {
     const raw = localStorage.getItem(ADMIN_HISTORY_KEY);
@@ -566,19 +712,29 @@ function renderHistoryList() {
   historyStatus.textContent = `${entries.length} action(s) enregistrée(s).`;
 }
 
+function mediaDataAttrs(media) {
+  const storage = media?.storage === "idb" ? "idb" : "src";
+  const mediaId = storage === "idb" ? escapeHTML(String(media?.id || "")) : "";
+  const inlineSrc = storage === "src" ? escapeHTML(String(media?.src || "")) : "";
+  return `data-admin-media="1" data-storage="${storage}" data-media-id="${mediaId}" data-inline-src="${inlineSrc}"`;
+}
+
 function projectPreviewMarkup(project) {
   const firstMedia = project.medias?.[0];
+  const attrs = mediaDataAttrs(firstMedia || {});
+
   if (firstMedia?.type === "video") {
-    return `<video src="${escapeHTML(firstMedia.src)}" muted playsinline preload="metadata"></video>`;
+    return `<video ${attrs} muted playsinline preload="metadata"></video>`;
   }
 
-  return `<img src="${escapeHTML(firstMedia?.src || project.image)}" alt="${escapeHTML(project.title)}" loading="lazy" />`;
+  return `<img ${attrs} alt="${escapeHTML(project.title)}" loading="lazy" />`;
 }
 
 function mediaThumbMarkup(media, index) {
+  const attrs = mediaDataAttrs(media || {});
   const preview = media.type === "video"
-    ? `<video src="${escapeHTML(media.src)}" muted playsinline preload="metadata"></video>`
-    : `<img src="${escapeHTML(media.src)}" alt="Media ${index + 1}" loading="lazy" />`;
+    ? `<video ${attrs} muted playsinline preload="metadata"></video>`
+    : `<img ${attrs} alt="Media ${index + 1}" loading="lazy" />`;
 
   return `
     <article class="edit-media-item">
@@ -607,6 +763,7 @@ function renderEditMediaDraft() {
   }
 
   editMediaList.innerHTML = editMediaDraft.map((media, index) => mediaThumbMarkup(media, index)).join("");
+  void hydrateAdminMediaElements();
 }
 
 function setCreateMode() {
@@ -693,6 +850,8 @@ function renderProjectList() {
     `
     )
     .join("");
+
+  void hydrateAdminMediaElements();
 }
 
 function renderTestimonialList() {
@@ -741,6 +900,19 @@ function readFileAsDataURL(file) {
 }
 
 async function filesToMedias(files) {
+  const store = getMediaStore();
+
+  if (store?.saveFile) {
+    const medias = await Promise.all(
+      files.map(async (file) => {
+        const saved = await store.saveFile(file);
+        return normalizeMediaEntry(saved);
+      })
+    );
+
+    return medias.filter(Boolean);
+  }
+
   const medias = await Promise.all(
     files.map(async (file) => {
       const src = await readFileAsDataURL(file);

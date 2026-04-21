@@ -91,6 +91,8 @@ let testimonialsExpanded = false;
 let renderedProjects = [];
 const previewIntervals = new Map();
 const touchPreviewTimeouts = new Map();
+const projectBlobUrls = new Set();
+let modalBlobUrl = "";
 let modalState = null;
 let touchTapState = {
   cardKey: "",
@@ -121,6 +123,67 @@ function inferMediaType(value) {
   return "image";
 }
 
+function getMediaStore() {
+  return window.IamyottoMediaStore || null;
+}
+
+function clearProjectBlobUrls() {
+  projectBlobUrls.forEach((url) => URL.revokeObjectURL(url));
+  projectBlobUrls.clear();
+}
+
+async function resolveProjectMediaSrc(media, trackObjectUrl = false) {
+  if (!media) {
+    return "";
+  }
+
+  if (media.storage === "idb" && media.id) {
+    const store = getMediaStore();
+    if (!store?.getObjectURLById) {
+      return "";
+    }
+
+    try {
+      const src = await store.getObjectURLById(media.id);
+      if (trackObjectUrl && src) {
+        projectBlobUrls.add(src);
+      }
+      return src || "";
+    } catch (error) {
+      console.error("Media IndexedDB indisponible", error);
+      return "";
+    }
+  }
+
+  return String(media.src || "");
+}
+
+async function hydrateProjectMediaElements() {
+  clearProjectBlobUrls();
+
+  const nodes = Array.from(document.querySelectorAll("[data-project-media='1']"));
+  for (const node of nodes) {
+    if (!(node instanceof HTMLImageElement) && !(node instanceof HTMLVideoElement)) {
+      continue;
+    }
+
+    const storage = String(node.dataset.storage || "src");
+    const mediaId = String(node.dataset.mediaId || "");
+    const inlineSrc = String(node.dataset.inlineSrc || "");
+
+    let src = inlineSrc;
+    if (storage === "idb" && mediaId) {
+      src = await resolveProjectMediaSrc({ storage: "idb", id: mediaId }, true);
+    }
+
+    if (!src) {
+      continue;
+    }
+
+    node.src = src;
+  }
+}
+
 function normalizeMediaEntry(entry) {
   if (!entry) {
     return null;
@@ -131,9 +194,23 @@ function normalizeMediaEntry(entry) {
     if (!src) {
       return null;
     }
+
     return {
       src,
       type: inferMediaType(src),
+    };
+  }
+
+  const storage = String(entry?.storage || "").trim();
+  const id = String(entry?.id || "").trim();
+
+  if (storage === "idb" && id) {
+    return {
+      storage: "idb",
+      id,
+      type: entry?.type === "video" ? "video" : "image",
+      name: String(entry?.name || ""),
+      size: Number(entry?.size || 0) || 0,
     };
   }
 
@@ -183,7 +260,7 @@ function normalizeProject(item) {
     title: title || "Creation sans titre",
     category: category || "Creation",
     description,
-    image: medias[0].src,
+    image: String(medias[0]?.src || ""),
     medias,
   };
 }
@@ -281,12 +358,20 @@ function starString(rating) {
   return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`;
 }
 
-function renderProjectMedia(media, projectTitle) {
-  if (media.type === "video") {
-    return `<video class="project-media" src="${escapeHTML(media.src)}" muted playsinline preload="metadata" loop></video>`;
+function renderProjectMedia(media, projectTitle, projectIndex, mediaIndex) {
+  const safeMedia = media || { src: "", type: "image" };
+  const storage = safeMedia.storage === "idb" ? "idb" : "src";
+  const mediaId = storage === "idb" ? escapeHTML(String(safeMedia.id || "")) : "";
+  const inlineSrc = storage === "src" ? escapeHTML(String(safeMedia.src || "")) : "";
+  const mediaType = safeMedia.type === "video" ? "video" : "image";
+
+  if (mediaType === "video") {
+    const srcAttr = inlineSrc ? ` src="${inlineSrc}"` : "";
+    return `<video class="project-media" data-project-media="1" data-storage="${storage}" data-media-id="${mediaId}" data-inline-src="${inlineSrc}" data-project-index="${projectIndex}" data-media-index="${mediaIndex}"${srcAttr} muted playsinline preload="metadata" loop></video>`;
   }
 
-  return `<img class="project-media" src="${escapeHTML(media.src)}" alt="${escapeHTML(projectTitle)}" loading="lazy" />`;
+  const srcAttr = inlineSrc ? ` src="${inlineSrc}"` : "";
+  return `<img class="project-media" data-project-media="1" data-storage="${storage}" data-media-id="${mediaId}" data-inline-src="${inlineSrc}" data-project-index="${projectIndex}" data-media-index="${mediaIndex}"${srcAttr} alt="${escapeHTML(projectTitle)}" loading="lazy" />`;
 }
 
 function renderProjects(projects) {
@@ -302,6 +387,7 @@ function renderProjects(projects) {
   previewIntervals.clear();
 
   if (!projects.length) {
+    clearProjectBlobUrls();
     projectGrid.innerHTML = '<p class="project-description">Aucune creation disponible pour le moment.</p>';
     return;
   }
@@ -314,7 +400,7 @@ function renderProjects(projects) {
         ? `<p class="project-description">${escapeHTML(description)}</p>`
         : "";
 
-      const mediaMarkup = medias.map((media) => renderProjectMedia(media, project.title)).join("");
+      const mediaMarkup = medias.map((media, mediaIndex) => renderProjectMedia(media, project.title, projectIndex, mediaIndex)).join("");
       const mediaCountMarkup = medias.length > 1
         ? `<span class="project-media-count">${medias.length}</span>`
         : "";
@@ -341,6 +427,7 @@ function renderProjects(projects) {
   });
 
   setupProjectInteractions();
+  void hydrateProjectMediaElements();
 }
 
 function setCardMedia(card, mediaIndex, autoplay) {
@@ -474,7 +561,7 @@ function fillModalDetails(listEl, items) {
     .join("");
 }
 
-function openProjectModal(project, mediaIndex = 0) {
+async function openProjectModal(project, mediaIndex = 0) {
   const modal = ensureProjectModal();
   if (!modal || !project) {
     return;
@@ -500,10 +587,35 @@ function openProjectModal(project, mediaIndex = 0) {
   fillModalDetails(modal.details, details);
 
   modal.visual.innerHTML = "";
+  if (modalBlobUrl) {
+    URL.revokeObjectURL(modalBlobUrl);
+    modalBlobUrl = "";
+  }
+
+  let mediaSrc = await resolveProjectMediaSrc(selected, false);
+  if (selected?.storage === "idb" && mediaSrc) {
+    modalBlobUrl = mediaSrc;
+  }
+
+  if (!mediaSrc) {
+    mediaSrc = String(selected?.src || "");
+  }
+
+  if (!mediaSrc) {
+    fillModalDetails(modal.details, [
+      { label: "Type", value: selected.type === "video" ? "Vidéo" : "Image" },
+      { label: "Media", value: `${safeIndex + 1}/${medias.length}` },
+      { label: "Dimensions", value: "Indisponible" },
+    ]);
+    modal.visual.innerHTML = '<p class="project-description">Media indisponible.</p>';
+    modal.root.removeAttribute("hidden");
+    document.body.style.overflow = "hidden";
+    return;
+  }
 
   if (selected.type === "video") {
     const video = document.createElement("video");
-    video.src = selected.src;
+    video.src = mediaSrc;
     video.controls = true;
     video.autoplay = true;
     video.muted = true;
@@ -524,7 +636,7 @@ function openProjectModal(project, mediaIndex = 0) {
     video.play().catch(() => {});
   } else {
     const img = document.createElement("img");
-    img.src = selected.src;
+    img.src = mediaSrc;
     img.alt = project.title || "Projet";
     img.className = "project-modal-media";
 
@@ -551,6 +663,10 @@ function closeProjectModal() {
 
   modalState.root.setAttribute("hidden", "");
   modalState.visual.querySelectorAll("video").forEach((video) => video.pause());
+  if (modalBlobUrl) {
+    URL.revokeObjectURL(modalBlobUrl);
+    modalBlobUrl = "";
+  }
   document.body.style.overflow = "";
 }
 
@@ -610,7 +726,7 @@ function setupProjectInteractions() {
         return;
       }
 
-      openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
+      void openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
       stopCardPreview(card);
       touchTapState = { cardKey: "", at: 0 };
     });
@@ -621,7 +737,7 @@ function setupProjectInteractions() {
         return;
       }
 
-      openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
+      void openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
       stopCardPreview(card);
     });
 
@@ -636,7 +752,7 @@ function setupProjectInteractions() {
         return;
       }
 
-      openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
+      void openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
     });
   });
 }
