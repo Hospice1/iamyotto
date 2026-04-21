@@ -1,0 +1,203 @@
+﻿<!DOCTYPE html>
+<html lang="fr" data-theme="system" data-color-scheme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Portfolio premium de designer branding et expériences visuelles." />
+  <title>Design Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800;900&family=Bodoni+Moda:opsz,wght@6..96,700;6..96,800;6..96,900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page-bg" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a href="index.html" class="brand" aria-label="Retour à l'accueil">
+      <img class="brand-wordmark" src="project-02.png" alt="iamyotto Co" loading="lazy" />
+    </a>
+
+    <nav class="site-nav" aria-label="Navigation principale">
+      <a href="#hero" class="is-active">Accueil</a>
+      <a href="#about">À propos</a>
+      <a href="#projects">Projets</a>
+      <a href="#proof">Preuves</a>
+      <a href="#contact">Contact</a>
+    </nav>
+
+    <div class="theme-switcher">
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="theme-menu">
+        Thème
+      </button>
+      <div id="theme-menu" class="theme-menu" hidden>
+        <button type="button" class="theme-option" data-theme-choice="system">Système</button>
+        <button type="button" class="theme-option" data-theme-choice="light">Clair</button>
+        <button type="button" class="theme-option" data-theme-choice="dark">Sombre</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="hero" class="hero reveal">
+      <p class="eyebrow">My</p>
+      <h1>DESIGN<br />PORTFOLIO</h1>
+      <p class="hero-subtitle">Designer & fondateur de iamyotto</p>
+      <a href="#projects" class="btn-primary" id="hero-projects-btn">Voir mes projets</a>
+      <div class="hero-logo-wrap" aria-label="Logo iamyotto">
+        <img class="hero-logo-image" src="project-02.png" alt="Logo iamyotto" loading="lazy" />
+      </div>
+    </section>
+    <section id="about" class="about reveal">
+      <div class="section-head">
+        <p class="eyebrow">À propos</p>
+        <h2>Une approche visuelle qui crée un impact durable.</h2>
+      </div>
+
+      <div class="about-content">
+        <div class="about-copy">
+          <p>
+            Je m’appelle Hospice YOTTO, fondateur de iamyotto Co.
+            Je crée des identités visuelles qui ne se contentent pas d’être belles — elles marquent, elles vendent, elles racontent.
+          </p>
+          <p>
+            Designer depuis plus de 3 ans, je me suis passionné pour la manière dont le visuel transforme une idée en expérience. Pour moi,
+            chaque projet est une combinaison de storytelling, de stratégie et d’esthétique.
+          </p>
+          <p>
+            Je ne me limite à aucun style. Mon travail navigue entre design imprimé et expériences digitales, avec un objectif simple : créer
+            des visuels qui captent l’attention et restent en mémoire.
+          </p>
+          <p>
+            Chaque collaboration est un processus construit avec le client. Je traduis des visions en identités fortes, en mettant l’accent
+            sur la clarté, l’impact et la différenciation.
+          </p>
+          <p>
+            Mon approche repose sur des compositions épurées, des choix audacieux et une recherche constante d’évolution.
+          </p>
+        </div>
+
+        <figure class="about-photo-card">
+          <img class="about-photo" src="assets/hospice-yotto.jpg" alt="Photo de Hospice YOTTO" loading="lazy" />
+          <figcaption class="about-photo-caption">
+            <strong>Hospice YOTTO -</strong>
+            <img class="about-caption-logo" src="project-02.png" alt="iamyotto Co" loading="lazy" />
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="projects" class="projects reveal">
+      <div class="section-head">
+        <p class="eyebrow">Projets</p>
+        <h2>Sélection dynamique importée depuis données catalogue.</h2>
+      </div>
+
+      <div class="project-toolbar">
+        <p id="import-status" class="import-status">Chargement des projets...</p>
+      </div>
+
+      <div id="project-grid" class="project-grid" aria-live="polite"></div>
+    </section>
+
+    <section id="proof" class="proof reveal">
+      <div class="section-head">
+        <p class="eyebrow">Preuves</p>
+        <h2>Retours clients</h2>
+      </div>
+
+      <div class="proof-stats">
+        <article>
+          <h3>100+</h3>
+          <p>Projets réalisés</p>
+        </article>
+        <article>
+          <h3>Clients satisfaits</h3>
+          <p>Collaboration orientée résultats, image et conversion.</p>
+        </article>
+      </div>
+
+      <div class="testimonial-controls">
+        <p class="testimonial-intro">Avis clients fictifs et réels (modération via admin).</p>
+        <button id="testimonials-toggle" type="button" class="btn-secondary btn-small">Voir plus</button>
+      </div>
+
+      <div id="testimonials-grid" class="testimonials-grid" aria-live="polite"></div>
+
+      <form id="testimonial-form" class="testimonial-form">
+        <h3>Laisser un témoignage</h3>
+        <label>
+          Votre nom
+          <input type="text" name="name" placeholder="Nom obligatoire" required />
+        </label>
+        <label>
+          Votre avis (étoiles)
+          <div class="rating-picker" role="radiogroup" aria-label="Note du témoignage">
+            <button type="button" class="rating-star" data-value="1" role="radio" aria-checked="false" aria-label="1 étoile">★</button>
+            <button type="button" class="rating-star" data-value="2" role="radio" aria-checked="false" aria-label="2 étoiles">★</button>
+            <button type="button" class="rating-star" data-value="3" role="radio" aria-checked="false" aria-label="3 étoiles">★</button>
+            <button type="button" class="rating-star" data-value="4" role="radio" aria-checked="false" aria-label="4 étoiles">★</button>
+            <button type="button" class="rating-star" data-value="5" role="radio" aria-checked="false" aria-label="5 étoiles">★</button>
+          </div>
+          <input type="hidden" name="rating" value="5" required />
+        </label>
+        <label>
+          Votre témoignage
+          <textarea name="message" rows="4" placeholder="Partagez votre expérience" required></textarea>
+        </label>
+        <button type="submit" class="btn-primary">Envoyer mon témoignage</button>
+        <p id="testimonial-status" class="testimonial-status">Votre nom est obligatoire pour publier un avis.</p>
+      </form>
+    </section>
+
+    <section id="contact" class="contact reveal">
+      <div class="section-head">
+        <p class="eyebrow">Contact</p>
+        <h2>Discutons de votre prochain projet.</h2>
+      </div>
+
+      <div class="contact-actions">
+        <a class="btn-primary btn-whatsapp" href="https://wa.me/22940175015" target="_blank" rel="noopener noreferrer">WhatsApp direct</a>
+        <a class="mail-link" href="mailto:hospiceyotto@outlook.fr">hospiceyotto@outlook.fr</a>
+      </div>
+
+      <form class="contact-form" action="#" method="post">
+        <label>
+          Nom
+          <input type="text" name="name" placeholder="Votre nom" required />
+        </label>
+        <label>
+          Email
+          <input type="email" name="email" placeholder="vous@email.com" required />
+        </label>
+        <label>
+          Message
+          <textarea name="message" rows="5" placeholder="Parlez-moi de votre besoin" required></textarea>
+        </label>
+        <button type="submit" class="btn-secondary">Envoyer</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer reveal">
+    <nav class="footer-links" aria-label="Liens rapides">
+      <a href="#hero" class="is-active">Accueil</a>
+      <a href="#about">À propos</a>
+      <a href="#projects">Projets</a>
+      <a href="#proof">Preuves</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

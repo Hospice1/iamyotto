@@ -1,0 +1,90 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Admin portfolio - ajout des créations et moderation des avis" />
+  <title>Admin Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-bg" aria-hidden="true"></div>
+
+  <main class="admin-shell">
+    <section id="login-gate" class="admin-panel login-panel">
+      <p class="admin-kicker">Accès Privé</p>
+      <h1>Connexion Admin</h1>
+      <p class="admin-sub">Entrez le mot de passe pour gérer les créations et les témoignages.</p>
+
+      <form id="login-form" class="login-form">
+        <label>
+          Mot de passe
+          <input id="login-password" type="password" placeholder="Mot de passe" required />
+        </label>
+        <button type="submit" class="btn-primary">Se connecter</button>
+      </form>
+      <p id="login-status" class="admin-status">Connexion requise.</p>
+    </section>
+
+    <div id="admin-app" hidden>
+      <header class="admin-header">
+        <div>
+          <p class="admin-kicker">Admin</p>
+          <h1>Gestion du portfolio</h1>
+          <p class="admin-sub">Ajoutez vos créations et modérez les témoignages depuis cette page.</p>
+        </div>
+        <div class="admin-header-actions">
+          <a class="back-link" href="index.html">Retour au portfolio</a>
+          <button id="logout-btn" type="button" class="btn-ghost">Se déconnecter</button>
+        </div>
+      </header>
+
+      <section class="admin-panel">
+        <h2>Nouvelle création</h2>
+        <form id="admin-form" class="admin-form">
+          <label>
+            Catégorie
+            <input type="text" name="categorie" placeholder="Ex: Branding, Print, Social Media" required />
+          </label>
+
+          <label>
+            Titre à afficher en bas
+            <input type="text" name="titre" placeholder="Nom de la création" required />
+          </label>
+
+          <label>
+            Importer une ou plusieurs images
+            <input id="image-files" type="file" accept="image/*" multiple required />
+          </label>
+
+          <div class="admin-actions">
+            <button type="submit" class="btn-primary">Ajouter la création</button>
+            <button id="clear-all" type="button" class="btn-ghost">Tout supprimer</button>
+          </div>
+        </form>
+        <p id="admin-status" class="admin-status">Prêt.</p>
+      </section>
+
+      <section class="admin-panel">
+        <h2>Créations enregistrées</h2>
+        <div id="admin-list" class="admin-list"></div>
+      </section>
+
+      <section class="admin-panel">
+        <div class="admin-panel-head">
+          <h2>Modération des témoignages</h2>
+          <button id="remove-bad-testimonials" type="button" class="btn-danger">Supprimer les avis négatifs/injurieux</button>
+        </div>
+        <p id="testimonial-status" class="admin-status">Un 11e avis négatif de test est préchargé pour validation.</p>
+        <div id="testimonial-list" class="testimonial-admin-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="admin.js" defer></script>
+</body>
+</html>
+
