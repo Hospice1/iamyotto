@@ -504,6 +504,12 @@ main p {
   gap: 1rem;
 }
 
+.projects-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
 .project-card {
   background: var(--card-bg);
   border-radius: var(--radius);
@@ -587,6 +593,11 @@ main p {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.testimonial-footer {
+  display: flex;
+  justify-content: center;
 }
 
 .testimonial-intro {

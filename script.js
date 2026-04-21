@@ -77,6 +77,7 @@ const INITIAL_TESTIMONIALS = [
 const projectGrid = document.getElementById("project-grid");
 const importStatus = document.getElementById("import-status");
 const heroProjectsButton = document.getElementById("hero-projects-btn");
+const projectsToggle = document.getElementById("projects-toggle");
 
 const testimonialsGrid = document.getElementById("testimonials-grid");
 const testimonialsToggle = document.getElementById("testimonials-toggle");
@@ -90,7 +91,13 @@ const themeMenu = document.getElementById("theme-menu");
 const themeOptions = Array.from(document.querySelectorAll(".theme-option"));
 const systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
-let testimonialsExpanded = false;
+const PROJECT_INITIAL_COUNT = 6;
+const PROJECT_STEP_COUNT = 10;
+const TESTIMONIAL_INITIAL_COUNT = 4;
+const TESTIMONIAL_STEP_COUNT = 4;
+
+let visibleProjectCount = PROJECT_INITIAL_COUNT;
+let visibleTestimonialCount = TESTIMONIAL_INITIAL_COUNT;
 let renderedProjects = [];
 const previewIntervals = new Map();
 const touchPreviewTimeouts = new Map();
@@ -478,12 +485,16 @@ function renderProjectMedia(media, projectTitle, projectIndex, mediaIndex) {
   return `<img class="project-media" data-project-media="1" data-storage="${storage}" data-media-id="${mediaId}" data-inline-src="${inlineSrc}" data-project-index="${projectIndex}" data-media-index="${mediaIndex}"${srcAttr} alt="${escapeHTML(projectTitle)}" loading="lazy" />`;
 }
 
-function renderProjects(projects) {
+function renderProjects(projects, preservePagination = false) {
   if (!projectGrid) {
     return;
   }
 
   renderedProjects = projects;
+
+  if (!preservePagination) {
+    visibleProjectCount = PROJECT_INITIAL_COUNT;
+  }
 
   previewIntervals.forEach((intervalId) => {
     clearInterval(intervalId);
@@ -493,10 +504,16 @@ function renderProjects(projects) {
   if (!projects.length) {
     clearProjectBlobUrls();
     projectGrid.innerHTML = '<p class="project-description">Aucune creation disponible pour le moment.</p>';
+    if (projectsToggle) {
+      projectsToggle.hidden = true;
+    }
     return;
   }
 
-  projectGrid.innerHTML = projects
+  const clampedVisibleCount = Math.min(projects.length, Math.max(PROJECT_INITIAL_COUNT, visibleProjectCount));
+  const shownProjects = projects.slice(0, clampedVisibleCount);
+
+  projectGrid.innerHTML = shownProjects
     .map((project, projectIndex) => {
       const medias = Array.isArray(project.medias) ? project.medias : [{ src: project.image, type: "image" }];
       const description = String(project.description || "").trim();
@@ -530,10 +547,15 @@ function renderProjects(projects) {
     setCardMedia(card, 0, false);
   });
 
+  if (projectsToggle) {
+    const canShowMore = shownProjects.length < projects.length;
+    projectsToggle.hidden = !canShowMore;
+    projectsToggle.textContent = "Voir plus";
+  }
+
   setupProjectInteractions();
   void hydrateProjectMediaElements();
 }
-
 function setCardMedia(card, mediaIndex, autoplay) {
   const mediaNodes = Array.from(card.querySelectorAll(".project-media"));
   if (!mediaNodes.length) {
@@ -861,18 +883,30 @@ function setupProjectInteractions() {
   });
 }
 
-function renderTestimonials() {
+
+function setupProjectsToggle() {
+  projectsToggle?.addEventListener("click", () => {
+    if (!renderedProjects.length) {
+      return;
+    }
+
+    visibleProjectCount = Math.min(renderedProjects.length, visibleProjectCount + PROJECT_STEP_COUNT);
+    renderProjects(renderedProjects, true);
+  });
+}
+
+function renderTestimonials(preservePagination = false) {
   if (!testimonialsGrid || !testimonialsToggle) {
     return;
   }
 
+  if (!preservePagination) {
+    visibleTestimonialCount = TESTIMONIAL_INITIAL_COUNT;
+  }
+
   const all = loadTestimonials();
   const visibleTestimonials = all.filter((item) => !item.hiddenOnPortfolio);
-  const baseVisibleCount = 5;
-  const shouldShowToggle = visibleTestimonials.length > baseVisibleCount;
-  const shown = testimonialsExpanded
-    ? visibleTestimonials
-    : visibleTestimonials.slice(0, baseVisibleCount);
+  const shown = visibleTestimonials.slice(0, visibleTestimonialCount);
 
   if (!shown.length) {
     testimonialsGrid.innerHTML = '<p class="testimonial-empty">Aucun temoignage disponible.</p>';
@@ -892,10 +926,9 @@ function renderTestimonials() {
     )
     .join("");
 
-  testimonialsToggle.hidden = !shouldShowToggle;
-  testimonialsToggle.textContent = testimonialsExpanded ? "Voir moins" : "Voir plus";
+  testimonialsToggle.hidden = visibleTestimonials.length <= visibleTestimonialCount;
+  testimonialsToggle.textContent = "Voir plus";
 }
-
 async function importProjects() {
   let catalogProjects = [];
   let catalogError = false;
@@ -1061,13 +1094,14 @@ function setupTestimonialForm() {
     testimonialForm.reset();
     resetRatingPicker();
     testimonialStatus.textContent = "Merci, votre temoignage a ete publie.";
-    testimonialsExpanded = false;
+    visibleTestimonialCount = TESTIMONIAL_INITIAL_COUNT;
     renderTestimonials();
   });
 
   testimonialsToggle?.addEventListener("click", () => {
-    testimonialsExpanded = !testimonialsExpanded;
-    renderTestimonials();
+    const total = loadTestimonials().filter((item) => !item.hiddenOnPortfolio).length;
+    visibleTestimonialCount = Math.min(total, visibleTestimonialCount + TESTIMONIAL_STEP_COUNT);
+    renderTestimonials(true);
   });
 }
 
@@ -1269,6 +1303,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupThemeSwitcher();
   setupScrollReveal();
   setupActiveNav();
+  setupProjectsToggle();
   setupTestimonialForm();
   setupContactForm();
   renderTestimonials();
