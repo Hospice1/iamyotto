@@ -399,7 +399,16 @@ function loadProjects() {
 }
 
 function saveProjects(projects) {
-  localStorage.setItem(ADMIN_PROJECTS_KEY, JSON.stringify(projects));
+  try {
+    localStorage.setItem(ADMIN_PROJECTS_KEY, JSON.stringify(projects));
+    return true;
+  } catch (error) {
+    console.error("Stockage projets plein", error);
+    if (statusBox) {
+      statusBox.textContent = "Impossible d'enregistrer: stockage navigateur plein. Reduisez la taille/quantite des medias (surtout videos).";
+    }
+    return false;
+  }
 }
 
 function loadHistory() {
@@ -432,8 +441,16 @@ function pushHistory(entry) {
   try {
     saveHistory(entries);
   } catch (error) {
-    const reduced = entries.slice(0, Math.max(6, Math.floor(HISTORY_LIMIT / 2)));
-    saveHistory(reduced);
+    try {
+      const reduced = entries.slice(0, Math.max(6, Math.floor(HISTORY_LIMIT / 2)));
+      saveHistory(reduced);
+    } catch (innerError) {
+      console.error("Historique desactive (stockage plein)", innerError);
+      if (historyStatus) {
+        historyStatus.textContent = "Historique desactive: stockage navigateur plein.";
+      }
+      return;
+    }
   }
 
   renderHistoryList();
@@ -752,7 +769,9 @@ function restoreDeletedProject(historyId) {
   const insertIndex = Math.max(0, Math.min(Number(entry?.payload?.index ?? projects.length), projects.length));
 
   projects.splice(insertIndex, 0, project);
-  saveProjects(projects);
+  if (!saveProjects(projects)) {
+    return;
+  }
 
   entries[idx] = {
     ...entry,
@@ -861,7 +880,9 @@ form?.addEventListener("submit", async (event) => {
       catalogRef: currentProject.catalogRef,
     });
 
-    saveProjects(projects);
+    if (!saveProjects(projects)) {
+      return;
+    }
     pushHistory({
       type: "update_project",
       title,
@@ -913,7 +934,9 @@ form?.addEventListener("submit", async (event) => {
   });
 
   const mergedProjects = [newProject, ...projects];
-  saveProjects(mergedProjects);
+  if (!saveProjects(mergedProjects)) {
+    return;
+  }
   pushHistory({
     type: "create_project",
     title: newProject.title,
@@ -1003,7 +1026,9 @@ list?.addEventListener("click", (event) => {
 
     const [moved] = projects.splice(index, 1);
     projects.splice(swapIndex, 0, moved);
-    saveProjects(projects);
+    if (!saveProjects(projects)) {
+      return;
+    }
 
     pushHistory({
       type: "reorder_project",
@@ -1029,7 +1054,9 @@ list?.addEventListener("click", (event) => {
 
   const removed = projects[index];
   projects.splice(index, 1);
-  saveProjects(projects);
+  if (!saveProjects(projects)) {
+    return;
+  }
 
   pushHistory({
     type: "delete_project",
@@ -1119,7 +1146,9 @@ clearAllBtn?.addEventListener("click", () => {
   }
 
   const count = loadProjects().length;
-  saveProjects([]);
+  if (!saveProjects([])) {
+    return;
+  }
   pushHistory({
     type: "clear_all",
     title: `${count}`,
@@ -1146,3 +1175,4 @@ window.addEventListener("DOMContentLoaded", async () => {
     lockAdmin();
   }
 });
+

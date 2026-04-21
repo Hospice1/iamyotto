@@ -703,7 +703,7 @@ async function importProjects() {
   }
 
   if (usingAdminProjects) {
-    importStatus.textContent = `${adminProjects.length} projet(s) geres depuis l'admin`;
+    importStatus.textContent = `${adminProjects.length} projet(s); Double cliquez pour voir en dimensions reelles`;
     return;
   }
 
@@ -1053,5 +1053,4 @@ window.addEventListener("DOMContentLoaded", () => {
   renderTestimonials();
   importProjects();
 });
-
 
