@@ -1,8 +1,10 @@
 ﻿const ADMIN_PROJECTS_KEY = "iamyotto_admin_projects";
 const TESTIMONIALS_KEY = "iamyotto_testimonials";
 const ADMIN_SESSION_KEY = "iamyotto_admin_session";
+const ADMIN_HISTORY_KEY = "iamyotto_admin_history";
 const ADMIN_PASSWORD = "AZERTY1234";
 const CATALOG_PATH = "data.json";
+const HISTORY_LIMIT = 30;
 
 const INITIAL_TESTIMONIALS = [
   {
@@ -93,10 +95,22 @@ const cancelEditBtn = document.getElementById("cancel-edit");
 const categoryInput = form?.querySelector('input[name="categorie"]');
 const titleInput = form?.querySelector('input[name="titre"]');
 const descriptionInput = form?.querySelector('textarea[name="description"]');
+const editMediaPanel = document.getElementById("edit-media-panel");
+const editMediaList = document.getElementById("edit-media-list");
+
+const historyList = document.getElementById("history-list");
+const historyStatus = document.getElementById("history-status");
+const clearHistoryBtn = document.getElementById("clear-history");
 
 const testimonialList = document.getElementById("testimonial-list");
 const testimonialStatus = document.getElementById("testimonial-status");
 const removeBadBtn = document.getElementById("remove-bad-testimonials");
+
+let editMediaDraft = [];
+
+function cloneJSON(value) {
+  return JSON.parse(JSON.stringify(value));
+}
 
 function isAuthenticated() {
   return sessionStorage.getItem(ADMIN_SESSION_KEY) === "ok";
@@ -121,6 +135,7 @@ async function unlockAdmin() {
 
   await mergeCatalogIntoAdminProjects();
   renderProjectList();
+  renderHistoryList();
   renderTestimonialList();
 }
 
@@ -383,6 +398,47 @@ function loadProjects() {
   }
 }
 
+function saveProjects(projects) {
+  localStorage.setItem(ADMIN_PROJECTS_KEY, JSON.stringify(projects));
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(ADMIN_HISTORY_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error("Erreur historique", error);
+    return [];
+  }
+}
+
+function saveHistory(entries) {
+  localStorage.setItem(ADMIN_HISTORY_KEY, JSON.stringify(entries.slice(0, HISTORY_LIMIT)));
+}
+
+function pushHistory(entry) {
+  const entries = loadHistory();
+  entries.unshift({
+    id: createProjectId(),
+    at: new Date().toISOString(),
+    ...entry,
+  });
+
+  try {
+    saveHistory(entries);
+  } catch (error) {
+    const reduced = entries.slice(0, Math.max(6, Math.floor(HISTORY_LIMIT / 2)));
+    saveHistory(reduced);
+  }
+
+  renderHistoryList();
+}
+
 function loadTestimonials() {
   ensureTestimonialsSeeded();
 
@@ -400,10 +456,6 @@ function loadTestimonials() {
     console.error(error);
     return INITIAL_TESTIMONIALS.map(normalizeTestimonial);
   }
-}
-
-function saveProjects(projects) {
-  localStorage.setItem(ADMIN_PROJECTS_KEY, JSON.stringify(projects));
 }
 
 function saveTestimonials(testimonials) {
@@ -431,6 +483,72 @@ function isNegativeOrAbusive(testimonial) {
   return lowRating || bannedPattern.test(text);
 }
 
+function formatDateLabel(isoDate) {
+  const date = new Date(isoDate || Date.now());
+  if (Number.isNaN(date.getTime())) {
+    return "Date inconnue";
+  }
+
+  return date.toLocaleString("fr-FR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function historyLabel(entry) {
+  switch (entry.type) {
+    case "create_project":
+      return `Création ajoutée: ${entry.title || "sans titre"}`;
+    case "update_project":
+      return `Création modifiée: ${entry.title || "sans titre"}`;
+    case "delete_project":
+      return `Création supprimée: ${entry.title || "sans titre"}`;
+    case "restore_project":
+      return `Création restaurée: ${entry.title || "sans titre"}`;
+    case "reorder_project":
+      return `Ordre modifié: ${entry.title || "création"}`;
+    case "clear_all":
+      return "Toutes les créations ont été supprimées";
+    default:
+      return entry.type || "Action";
+  }
+}
+
+function renderHistoryList() {
+  if (!historyList || !historyStatus) {
+    return;
+  }
+
+  const entries = loadHistory();
+  if (!entries.length) {
+    historyList.innerHTML = '<p class="admin-status">Aucun historique disponible.</p>';
+    historyStatus.textContent = "Suivi des actions récentes.";
+    return;
+  }
+
+  historyList.innerHTML = entries
+    .map((entry) => {
+      const canRestore = entry.type === "delete_project" && entry?.payload?.project && !entry.restored;
+      const restoreBtn = canRestore
+        ? `<button class="restore-history-btn" type="button" data-history-id="${escapeHTML(entry.id)}">Restaurer</button>`
+        : "";
+
+      return `
+      <article class="history-item">
+        <p class="history-title">${escapeHTML(historyLabel(entry))}</p>
+        <p class="history-time">${escapeHTML(formatDateLabel(entry.at))}</p>
+        ${restoreBtn}
+      </article>
+    `;
+    })
+    .join("");
+
+  historyStatus.textContent = `${entries.length} action(s) enregistrée(s).`;
+}
+
 function projectPreviewMarkup(project) {
   const firstMedia = project.medias?.[0];
   if (firstMedia?.type === "video") {
@@ -440,10 +558,47 @@ function projectPreviewMarkup(project) {
   return `<img src="${escapeHTML(firstMedia?.src || project.image)}" alt="${escapeHTML(project.title)}" loading="lazy" />`;
 }
 
+function mediaThumbMarkup(media, index) {
+  const preview = media.type === "video"
+    ? `<video src="${escapeHTML(media.src)}" muted playsinline preload="metadata"></video>`
+    : `<img src="${escapeHTML(media.src)}" alt="Media ${index + 1}" loading="lazy" />`;
+
+  return `
+    <article class="edit-media-item">
+      ${preview}
+      <button class="remove-media-btn" type="button" data-media-index="${index}" aria-label="Supprimer ce média">✕</button>
+    </article>
+  `;
+}
+
+function renderEditMediaDraft() {
+  if (!editMediaPanel || !editMediaList) {
+    return;
+  }
+
+  if (!editProjectIdInput?.value) {
+    editMediaPanel.hidden = true;
+    editMediaList.innerHTML = "";
+    return;
+  }
+
+  editMediaPanel.hidden = false;
+
+  if (!editMediaDraft.length) {
+    editMediaList.innerHTML = '<p class="admin-status">Aucun média conservé. Ajoutez-en au moins un nouveau avant d’enregistrer.</p>';
+    return;
+  }
+
+  editMediaList.innerHTML = editMediaDraft.map((media, index) => mediaThumbMarkup(media, index)).join("");
+}
+
 function setCreateMode() {
   if (editProjectIdInput) {
     editProjectIdInput.value = "";
   }
+  editMediaDraft = [];
+  renderEditMediaDraft();
+
   if (submitProjectBtn) {
     submitProjectBtn.textContent = "Ajouter la création";
   }
@@ -468,6 +623,8 @@ function setEditMode(project) {
   categoryInput.value = project.category;
   titleInput.value = project.title;
   descriptionInput.value = project.description || "";
+  editMediaDraft = cloneJSON(project.medias || []);
+  renderEditMediaDraft();
 
   if (imageFilesInput) {
     imageFilesInput.value = "";
@@ -481,7 +638,7 @@ function setEditMode(project) {
   }
 
   if (statusBox) {
-    statusBox.textContent = "Mode modification actif. Vous pouvez remplacer les médias ou juste modifier les infos.";
+    statusBox.textContent = "Mode modification actif. Retirez des médias avec ✕, ou ajoutez de nouveaux médias.";
   }
 
   form?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -501,7 +658,7 @@ function renderProjectList() {
 
   list.innerHTML = projects
     .map(
-      (project) => `
+      (project, index) => `
       <article class="admin-item">
         ${projectPreviewMarkup(project)}
         <div class="admin-item-body">
@@ -509,6 +666,8 @@ function renderProjectList() {
           <h3>${escapeHTML(project.title)}</h3>
           <p class="admin-status">${project.medias.length} media(s)</p>
           <div class="admin-item-actions">
+            <button class="order-btn" type="button" data-order="up" data-id="${escapeHTML(project.id)}" ${index === 0 ? "disabled" : ""}>Monter</button>
+            <button class="order-btn" type="button" data-order="down" data-id="${escapeHTML(project.id)}" ${index === projects.length - 1 ? "disabled" : ""}>Descendre</button>
             <button class="edit-btn" type="button" data-id="${escapeHTML(project.id)}">Modifier</button>
             <button class="delete-btn" type="button" data-id="${escapeHTML(project.id)}">Supprimer</button>
           </div>
@@ -576,6 +735,42 @@ async function filesToMedias(files) {
   return medias.map(normalizeMediaEntry).filter(Boolean);
 }
 
+function restoreDeletedProject(historyId) {
+  const entries = loadHistory();
+  const idx = entries.findIndex((entry) => entry.id === historyId);
+  if (idx < 0) {
+    return;
+  }
+
+  const entry = entries[idx];
+  if (entry.type !== "delete_project" || !entry?.payload?.project || entry.restored) {
+    return;
+  }
+
+  const projects = loadProjects();
+  const project = normalizeProject(entry.payload.project);
+  const insertIndex = Math.max(0, Math.min(Number(entry?.payload?.index ?? projects.length), projects.length));
+
+  projects.splice(insertIndex, 0, project);
+  saveProjects(projects);
+
+  entries[idx] = {
+    ...entry,
+    restored: true,
+  };
+  saveHistory(entries);
+
+  pushHistory({
+    type: "restore_project",
+    title: project.title,
+  });
+
+  renderProjectList();
+  if (statusBox) {
+    statusBox.textContent = "Création restaurée depuis l'historique.";
+  }
+}
+
 loginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -634,11 +829,12 @@ form?.addEventListener("submit", async (event) => {
     }
 
     const currentProject = projects[index];
-    let medias = currentProject.medias;
+    let medias = cloneJSON(editMediaDraft);
 
     if (files.length) {
       try {
-        medias = await filesToMedias(files);
+        const appended = await filesToMedias(files);
+        medias = [...medias, ...appended];
       } catch {
         if (statusBox) {
           statusBox.textContent = "Impossible de lire un ou plusieurs médias.";
@@ -649,7 +845,7 @@ form?.addEventListener("submit", async (event) => {
 
     if (!medias.length) {
       if (statusBox) {
-        statusBox.textContent = "Ajoutez au moins un média.";
+        statusBox.textContent = "Conservez au moins un média ou ajoutez-en un nouveau.";
       }
       return;
     }
@@ -666,6 +862,11 @@ form?.addEventListener("submit", async (event) => {
     });
 
     saveProjects(projects);
+    pushHistory({
+      type: "update_project",
+      title,
+    });
+
     form.reset();
     if (imageFilesInput) {
       imageFilesInput.value = "";
@@ -673,9 +874,7 @@ form?.addEventListener("submit", async (event) => {
     setCreateMode();
 
     if (statusBox) {
-      statusBox.textContent = files.length
-        ? "Creation modifiee (infos + médias)."
-        : "Creation modifiee (infos).";
+      statusBox.textContent = "Création modifiée.";
     }
 
     renderProjectList();
@@ -715,6 +914,10 @@ form?.addEventListener("submit", async (event) => {
 
   const mergedProjects = [newProject, ...projects];
   saveProjects(mergedProjects);
+  pushHistory({
+    type: "create_project",
+    title: newProject.title,
+  });
 
   form.reset();
   if (imageFilesInput) {
@@ -736,6 +939,24 @@ cancelEditBtn?.addEventListener("click", () => {
   setCreateMode();
   if (statusBox) {
     statusBox.textContent = "Mode modification annule.";
+  }
+});
+
+editMediaList?.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || !target.classList.contains("remove-media-btn")) {
+    return;
+  }
+
+  const mediaIndex = Number(target.dataset.mediaIndex);
+  if (Number.isNaN(mediaIndex) || mediaIndex < 0 || mediaIndex >= editMediaDraft.length) {
+    return;
+  }
+
+  editMediaDraft.splice(mediaIndex, 1);
+  renderEditMediaDraft();
+  if (statusBox) {
+    statusBox.textContent = "Média retiré. Enregistrez pour confirmer la suppression.";
   }
 });
 
@@ -763,17 +984,62 @@ list?.addEventListener("click", (event) => {
     return;
   }
 
+  if (target.classList.contains("order-btn")) {
+    const direction = target.dataset.order;
+    if (direction !== "up" && direction !== "down") {
+      return;
+    }
+
+    const projects = loadProjects();
+    const index = projects.findIndex((item) => item.id === projectId);
+    if (index < 0) {
+      return;
+    }
+
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= projects.length) {
+      return;
+    }
+
+    const [moved] = projects.splice(index, 1);
+    projects.splice(swapIndex, 0, moved);
+    saveProjects(projects);
+
+    pushHistory({
+      type: "reorder_project",
+      title: moved.title,
+    });
+
+    renderProjectList();
+    if (statusBox) {
+      statusBox.textContent = "Ordre d'affichage mis à jour.";
+    }
+    return;
+  }
+
   if (!target.classList.contains("delete-btn")) {
     return;
   }
 
   const projects = loadProjects();
-  const filtered = projects.filter((item) => item.id !== projectId);
-  if (filtered.length === projects.length) {
+  const index = projects.findIndex((item) => item.id === projectId);
+  if (index < 0) {
     return;
   }
 
-  saveProjects(filtered);
+  const removed = projects[index];
+  projects.splice(index, 1);
+  saveProjects(projects);
+
+  pushHistory({
+    type: "delete_project",
+    title: removed.title,
+    payload: {
+      index,
+      project: removed,
+    },
+  });
+
   if (editProjectIdInput?.value === projectId) {
     form?.reset();
     if (imageFilesInput) {
@@ -783,9 +1049,28 @@ list?.addEventListener("click", (event) => {
   }
 
   if (statusBox) {
-    statusBox.textContent = "Creation supprimee.";
+    statusBox.textContent = "Creation supprimee. Vous pouvez la restaurer depuis l'historique.";
   }
   renderProjectList();
+});
+
+historyList?.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || !target.classList.contains("restore-history-btn")) {
+    return;
+  }
+
+  const historyId = String(target.dataset.historyId || "").trim();
+  if (!historyId) {
+    return;
+  }
+
+  restoreDeletedProject(historyId);
+});
+
+clearHistoryBtn?.addEventListener("click", () => {
+  saveHistory([]);
+  renderHistoryList();
 });
 
 testimonialList?.addEventListener("click", (event) => {
@@ -833,7 +1118,13 @@ clearAllBtn?.addEventListener("click", () => {
     return;
   }
 
+  const count = loadProjects().length;
   saveProjects([]);
+  pushHistory({
+    type: "clear_all",
+    title: `${count}`,
+  });
+
   form?.reset();
   if (imageFilesInput) {
     imageFilesInput.value = "";

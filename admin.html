@@ -62,6 +62,11 @@
             <textarea name="description" rows="3" placeholder="Infos, contexte, objectifs..."></textarea>
           </label>
 
+          <section id="edit-media-panel" class="edit-media-panel" hidden>
+            <p class="edit-media-title">Médias déjà enregistrés (cliquez sur ✕ pour supprimer)</p>
+            <div id="edit-media-list" class="edit-media-list"></div>
+          </section>
+
           <label>
             Importer images ou vidéos (optionnel en modification)
             <input id="image-files" type="file" accept="image/*,video/*" multiple />
@@ -79,6 +84,15 @@
       <section class="admin-panel">
         <h2>Créations enregistrées</h2>
         <div id="admin-list" class="admin-list"></div>
+      </section>
+
+      <section class="admin-panel">
+        <div class="admin-panel-head">
+          <h2>Historique des modifications</h2>
+          <button id="clear-history" type="button" class="btn-ghost">Vider l'historique</button>
+        </div>
+        <p id="history-status" class="admin-status">Suivi des actions récentes.</p>
+        <div id="history-list" class="history-list"></div>
       </section>
 
       <section class="admin-panel">
