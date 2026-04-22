@@ -125,26 +125,307 @@ let touchTapState = {
 };
 let whatsappMessageDismissed = false;
 
-const DEFAULT_ABOUT_STORY = (() => {
-  if (!(aboutCopy instanceof HTMLElement)) {
-    return "Je m'appelle Hospice YOTTO, fondateur de iamyotto Co.";
+const TRANSLATIONS = {
+  en: {
+    document_title: "Design Portfolio",
+    meta_description: "Premium portfolio for branding design and visual experiences.",
+    brand_home: "Back to home",
+    nav_main_aria: "Main navigation",
+    nav_quick_aria: "Quick links",
+    nav_home: "Home",
+    nav_about: "About",
+    nav_projects: "Projects",
+    nav_proof: "Proof",
+    nav_contact: "Contact",
+    theme_system: "System",
+    theme_light: "Light",
+    theme_dark: "Dark",
+    hero_eyebrow: "My",
+    hero_subtitle: "Designer and founder of iamyotto",
+    hero_cta_projects: "View my projects",
+    about_eyebrow: "About",
+    about_heading: "A visual approach designed to create lasting impact.",
+    about_photo_alt: "Photo of Hospice YOTTO",
+    projects_eyebrow: "Projects",
+    projects_heading: "Dynamic selection imported from catalog data.",
+    projects_loading: "Loading projects...",
+    proof_eyebrow: "Proof",
+    proof_heading: "Client feedback",
+    proof_projects_done: "Completed projects",
+    proof_clients_title: "Satisfied clients",
+    proof_clients_subtitle: "Result-driven collaboration focused on image and conversion.",
+    proof_testimonial_intro: "Client reviews",
+    testimonials_more: "See more",
+    testimonials_less: "See less",
+    testimonial_form_title: "Leave a testimonial",
+    testimonial_label_name: "Your full name",
+    testimonial_name_placeholder: "Full name",
+    testimonial_label_rating: "Your rating (stars)",
+    testimonial_rating_aria: "Testimonial rating",
+    testimonial_star_1: "1 star",
+    testimonial_star_2: "2 stars",
+    testimonial_star_3: "3 stars",
+    testimonial_star_4: "4 stars",
+    testimonial_star_5: "5 stars",
+    testimonial_label_message: "Your testimonial",
+    testimonial_message_placeholder: "Share your experience",
+    testimonial_submit: "Send testimonial",
+    contact_eyebrow: "Contact",
+    contact_heading: "Let's discuss your next project.",
+    contact_whatsapp: "WhatsApp direct",
+    contact_label_name: "Name",
+    contact_name_placeholder: "Your name",
+    contact_label_email: "Email",
+    contact_email_placeholder: "you@email.com",
+    contact_label_message: "Message",
+    contact_message_placeholder: "Tell me about your need",
+    contact_submit: "Send",
+    contact_submit_sent: "Sent",
+    footer_signature: "\u00A9 Hospice YOTTO. All rights reserved.",
+    whatsapp_close_aria: "Close WhatsApp message",
+    whatsapp_message_text: "Contact me on WhatsApp for your project.",
+    whatsapp_aria: "Contact on WhatsApp",
+    facebook_aria: "Open Facebook profile",
+    project_no_items: "No creation available for now.",
+    project_hint_dblclick: "Double click to open details",
+    project_open_aria: "Open {title}",
+    project_site_label: "View site",
+    project_page_aria: "Go to page {page}",
+    project_pagination_aria: "Project pagination",
+    project_modal_aria: "Project details",
+    project_modal_close_aria: "Close",
+    project_modal_prev_aria: "Previous media",
+    project_modal_next_aria: "Next media",
+    modal_loading: "Loading...",
+    modal_type: "Type",
+    modal_video: "Video",
+    modal_image: "Image",
+    modal_media: "Media",
+    modal_dimensions: "Dimensions",
+    modal_unavailable: "Unavailable",
+    modal_no_description: "No description provided.",
+    modal_no_media: "Media unavailable.",
+    modal_duration: "Duration",
+    import_error: "Import error: please check data.json",
+    import_admin_count: "{count} project(s); Double click to view full size",
+    import_catalog_unavailable: "Catalog unavailable.",
+    import_catalog_count: "{count} project(s) from data.json",
+    testimonial_empty: "No testimonial available.",
+    rating_out_of_5: "out of 5",
+    testimonial_name_required: "Name is required.",
+    testimonial_message_required: "Testimonial message is required.",
+    testimonial_rating_required: "Please choose a valid rating.",
+    testimonial_thanks: "Thank you, your testimonial has been published.",
+    contact_fill_required: "Please fill in all fields.",
+    contact_success: "Message sent successfully.",
+    default_category: "Creation",
+    default_project_title: "Untitled creation",
+    default_role: "Designer",
+    testimonial_anonymous: "Anonymous client",
+    testimonial_unavailable: "Review unavailable.",
+    theme_mode_system: "System ({mode})",
+    theme_mode_dark: "Dark",
+    theme_mode_light: "Light",
+    theme_current_mode: "Current mode: {mode}",
+  },
+  fr: {
+    document_title: "Design Portfolio",
+    meta_description: "Portfolio premium de designer branding et experiences visuelles.",
+    brand_home: "Retour a l'accueil",
+    nav_main_aria: "Navigation principale",
+    nav_quick_aria: "Liens rapides",
+    nav_home: "Accueil",
+    nav_about: "A propos",
+    nav_projects: "Projets",
+    nav_proof: "Preuves",
+    nav_contact: "Contact",
+    theme_system: "Systeme",
+    theme_light: "Clair",
+    theme_dark: "Sombre",
+    hero_eyebrow: "Mon",
+    hero_subtitle: "Designer et fondateur de iamyotto",
+    hero_cta_projects: "Voir mes projets",
+    about_eyebrow: "A propos",
+    about_heading: "Une approche visuelle qui cree un impact durable.",
+    about_photo_alt: "Photo de Hospice YOTTO",
+    projects_eyebrow: "Projets",
+    projects_heading: "Selection dynamique importee depuis donnees catalogue.",
+    projects_loading: "Chargement des projets...",
+    proof_eyebrow: "Preuves",
+    proof_heading: "Retours clients",
+    proof_projects_done: "Projets realises",
+    proof_clients_title: "Clients satisfaits",
+    proof_clients_subtitle: "Collaboration orientee resultats, image et conversion.",
+    proof_testimonial_intro: "Avis clients",
+    testimonials_more: "Voir plus",
+    testimonials_less: "Voir moins",
+    testimonial_form_title: "Laisser un temoignage",
+    testimonial_label_name: "Votre nom et prenom",
+    testimonial_name_placeholder: "Nom et prenom",
+    testimonial_label_rating: "Votre avis (etoiles)",
+    testimonial_rating_aria: "Note du temoignage",
+    testimonial_star_1: "1 etoile",
+    testimonial_star_2: "2 etoiles",
+    testimonial_star_3: "3 etoiles",
+    testimonial_star_4: "4 etoiles",
+    testimonial_star_5: "5 etoiles",
+    testimonial_label_message: "Votre temoignage",
+    testimonial_message_placeholder: "Partagez votre experience",
+    testimonial_submit: "Envoyer mon temoignage",
+    contact_eyebrow: "Contact",
+    contact_heading: "Discutons de votre prochain projet.",
+    contact_whatsapp: "WhatsApp direct",
+    contact_label_name: "Nom",
+    contact_name_placeholder: "Votre nom",
+    contact_label_email: "Email",
+    contact_email_placeholder: "vous@email.com",
+    contact_label_message: "Message",
+    contact_message_placeholder: "Parlez-moi de votre besoin",
+    contact_submit: "Envoyer",
+    contact_submit_sent: "Envoye",
+    footer_signature: "\u00A9 Hospice YOTTO. Tous droits reserves.",
+    whatsapp_close_aria: "Fermer le message WhatsApp",
+    whatsapp_message_text: "Contactez-moi sur WhatsApp pour votre projet.",
+    whatsapp_aria: "Contacter sur WhatsApp",
+    facebook_aria: "Ouvrir le profil Facebook",
+    project_no_items: "Aucune creation disponible pour le moment.",
+    project_hint_dblclick: "Double clic pour afficher en detail",
+    project_open_aria: "Ouvrir {title}",
+    project_site_label: "Voir le site",
+    project_page_aria: "Aller a la page {page}",
+    project_pagination_aria: "Pagination des projets",
+    project_modal_aria: "Detail du projet",
+    project_modal_close_aria: "Fermer",
+    project_modal_prev_aria: "Media precedent",
+    project_modal_next_aria: "Media suivant",
+    modal_loading: "Chargement...",
+    modal_type: "Type",
+    modal_video: "Video",
+    modal_image: "Image",
+    modal_media: "Media",
+    modal_dimensions: "Dimensions",
+    modal_unavailable: "Indisponible",
+    modal_no_description: "Aucune description fournie.",
+    modal_no_media: "Media indisponible.",
+    modal_duration: "Duree",
+    import_error: "Erreur d'import: verifiez data.json",
+    import_admin_count: "{count} projet(s); Double cliquez pour voir en dimensions reelles",
+    import_catalog_unavailable: "Catalogue indisponible.",
+    import_catalog_count: "{count} projet(s) depuis data.json",
+    testimonial_empty: "Aucun temoignage disponible.",
+    rating_out_of_5: "sur 5",
+    testimonial_name_required: "Le nom est obligatoire.",
+    testimonial_message_required: "Le temoignage est obligatoire.",
+    testimonial_rating_required: "Veuillez choisir une note valide.",
+    testimonial_thanks: "Merci, votre temoignage a ete publie.",
+    contact_fill_required: "Merci de remplir tous les champs.",
+    contact_success: "Envoi reussi",
+    default_category: "Creation",
+    default_project_title: "Creation sans titre",
+    default_role: "Designer",
+    testimonial_anonymous: "Client anonyme",
+    testimonial_unavailable: "Avis indisponible.",
+    theme_mode_system: "Systeme ({mode})",
+    theme_mode_dark: "Sombre",
+    theme_mode_light: "Clair",
+    theme_current_mode: "Mode actuel: {mode}",
+  },
+};
+
+const DEFAULT_ABOUT_STORY_BY_LOCALE = {
+  en: [
+    "My name is Hospice YOTTO, founder of iamyotto Co. I create visual identities that do more than look good - they leave a mark, they sell, and they tell stories.",
+    "As a designer for more than 3 years, I became passionate about the way visuals transform an idea into an experience. For me, each project is a combination of storytelling, strategy and aesthetics.",
+    "I do not lock myself into one style. My work moves between print design and digital experiences, with one simple goal: create visuals that capture attention and stay in memory.",
+    "Every collaboration is a process built with the client. I translate visions into strong identities with a focus on clarity, impact and differentiation.",
+    "My approach relies on clean compositions, bold choices and constant evolution.",
+  ].join("\n\n"),
+  fr: [
+    "Je m'appelle Hospice YOTTO, fondateur de iamyotto Co. Je cree des identites visuelles qui ne se contentent pas d'etre belles - elles marquent, elles vendent, elles racontent.",
+    "Designer depuis plus de 3 ans, je me suis passionne pour la maniere dont le visuel transforme une idee en experience. Pour moi, chaque projet est une combinaison de storytelling, de strategie et d'esthetique.",
+    "Je ne me limite a aucun style. Mon travail navigue entre design imprime et experiences digitales, avec un objectif simple : creer des visuels qui captent l'attention et restent en memoire.",
+    "Chaque collaboration est un processus construit avec le client. Je traduis des visions en identites fortes, en mettant l'accent sur la clarte, l'impact et la differenciation.",
+    "Mon approche repose sur des compositions epurees, des choix audacieux et une recherche constante d'evolution.",
+  ].join("\n\n"),
+};
+
+function detectPreferredLocale() {
+  const raw = String(navigator.language || navigator.userLanguage || "en").toLowerCase();
+  if (raw.startsWith("fr")) {
+    return "fr";
+  }
+  return "en";
+}
+
+let activeLocale = detectPreferredLocale();
+
+function t(key, vars = {}) {
+  const localePack = TRANSLATIONS[activeLocale] || TRANSLATIONS.en;
+  let text = localePack[key] || TRANSLATIONS.en[key] || key;
+
+  Object.entries(vars).forEach(([name, value]) => {
+    text = text.split("{" + name + "}").join(String(value));
+  });
+
+  return text;
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = activeLocale;
+  document.title = t("document_title");
+
+  const descriptionMeta = document.querySelector('meta[name="description"]');
+  if (descriptionMeta instanceof HTMLMetaElement) {
+    descriptionMeta.setAttribute("content", t("meta_description"));
   }
 
-  const paragraphs = Array.from(aboutCopy.querySelectorAll("p"))
-    .map((paragraph) => String(paragraph.textContent || "").trim())
-    .filter(Boolean);
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node instanceof HTMLElement ? node.dataset.i18n : "";
+    if (!key) {
+      return;
+    }
+    node.textContent = t(key);
+  });
 
-  if (!paragraphs.length) {
-    return "Je m'appelle Hospice YOTTO, fondateur de iamyotto Co.";
-  }
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+    const key = node instanceof HTMLElement ? node.dataset.i18nPlaceholder : "";
+    if (!key) {
+      return;
+    }
 
-  return paragraphs.join("\n\n");
-})();
+    if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
+      node.placeholder = t(key);
+    }
+  });
+
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((node) => {
+    const key = node instanceof HTMLElement ? node.dataset.i18nAriaLabel : "";
+    if (!key) {
+      return;
+    }
+    node.setAttribute("aria-label", t(key));
+  });
+
+  document.querySelectorAll("[data-i18n-alt]").forEach((node) => {
+    const key = node instanceof HTMLElement ? node.dataset.i18nAlt : "";
+    if (!key) {
+      return;
+    }
+
+    if (node instanceof HTMLImageElement) {
+      node.alt = t(key);
+    }
+  });
+}
+
+function getDefaultAboutStory() {
+  return DEFAULT_ABOUT_STORY_BY_LOCALE[activeLocale] || DEFAULT_ABOUT_STORY_BY_LOCALE.en;
+}
 
 async function loadCatalogData() {
   const response = await fetch("data.json", { cache: "no-store" });
   if (!response.ok) {
-    throw new Error("Impossible de charger data.json");
+    throw new Error("Unable to load data.json");
   }
   return response.json();
 }
@@ -191,7 +472,7 @@ function normalizeWebsiteUrl(value) {
 
 function normalizeAboutStoryText(value) {
   const text = String(value || "").replace(/\r\n/g, "\n").trim();
-  return text || DEFAULT_ABOUT_STORY;
+  return text || getDefaultAboutStory();
 }
 
 function splitAboutStoryParagraphs(storyText) {
@@ -205,7 +486,7 @@ function loadAboutStory() {
   try {
     const raw = localStorage.getItem(ABOUT_STORY_KEY);
     if (!raw) {
-      return DEFAULT_ABOUT_STORY;
+      return getDefaultAboutStory();
     }
 
     const parsed = JSON.parse(raw);
@@ -219,7 +500,7 @@ function loadAboutStory() {
 
     return normalizeAboutStoryText(raw);
   } catch {
-    return DEFAULT_ABOUT_STORY;
+    return getDefaultAboutStory();
   }
 }
 
@@ -358,8 +639,8 @@ function extractProjectMedias(item) {
 }
 
 function normalizeProject(item) {
-  const category = String(item?.category || item?.categorie || "Creation").trim();
-  const title = String(item?.titre || item?.title || "Creation sans titre").trim();
+  const category = String(item?.category || item?.categorie || t("default_category")).trim();
+  const title = String(item?.titre || item?.title || t("default_project_title")).trim();
   const description = String(item?.description || "").trim();
   const websiteUrl = normalizeWebsiteUrl(item?.websiteUrl || item?.siteUrl || item?.link || "");
   const medias = extractProjectMedias(item);
@@ -369,8 +650,8 @@ function normalizeProject(item) {
   }
 
   return {
-    title: title || "Creation sans titre",
-    category: category || "Creation",
+    title: title || t("default_project_title"),
+    category: category || t("default_category"),
     description,
     websiteUrl,
     image: String(medias[0]?.src || ""),
@@ -436,9 +717,9 @@ function loadAdminProjects() {
 function normalizeTestimonial(item) {
   const rating = Number(item?.rating);
   return {
-    name: String(item?.name || "Client anonyme"),
+    name: String(item?.name || t("testimonial_anonymous")),
     rating: Number.isNaN(rating) ? 5 : Math.max(1, Math.min(5, rating)),
-    message: String(item?.message || "Avis indisponible."),
+    message: String(item?.message || t("testimonial_unavailable")),
     createdAt: item?.createdAt || new Date().toISOString(),
     hiddenOnPortfolio: Boolean(item?.hiddenOnPortfolio),
     moderationTest: Boolean(item?.moderationTest),
@@ -518,7 +799,7 @@ function normalizeAboutProfile(value) {
 
   if (storage === "idb" && photoId) {
     return {
-      roleText: roleText || "Designer",
+      roleText: roleText || t("default_role"),
       photoStorage: "idb",
       photoId,
       photoSrc: "",
@@ -526,7 +807,7 @@ function normalizeAboutProfile(value) {
   }
 
   return {
-    roleText: roleText || "Designer",
+    roleText: roleText || t("default_role"),
     photoStorage: "src",
     photoId: "",
     photoSrc: photoSrc || "assets/hospice-yotto.jpg",
@@ -549,7 +830,7 @@ function loadAboutProfile() {
 }
 
 function formatAboutCaptionText(roleText) {
-  const safe = String(roleText || "").trim() || "Designer";
+  const safe = String(roleText || "").trim() || t("default_role");
   return `Hospice YOTTO - ${safe}`;
 }
 
@@ -631,14 +912,17 @@ function setupContactForm() {
     }
   };
 
+  const idleLabel = () => t("contact_submit");
+  const sentLabel = () => t("contact_submit_sent");
+
   contactForm.addEventListener("input", () => {
     if (contactStatus.classList.contains("is-success")) {
       contactStatus.classList.remove("is-success");
       contactStatus.textContent = "";
     }
 
-    if (contactSubmit instanceof HTMLElement && contactSubmit.textContent.trim() === "Envoyé") {
-      contactSubmit.textContent = "Envoyer";
+    if (contactSubmit instanceof HTMLElement && contactSubmit.textContent.trim() === sentLabel()) {
+      contactSubmit.textContent = idleLabel();
     }
   });
 
@@ -651,9 +935,9 @@ function setupContactForm() {
     const message = String(data.get("message") || "").trim();
 
     if (!name || !email || !message) {
-      contactStatus.textContent = "Merci de remplir tous les champs.";
+      contactStatus.textContent = t("contact_fill_required");
       contactStatus.classList.remove("is-success");
-      setSubmitLabel("Envoyer");
+      setSubmitLabel(idleLabel());
       return;
     }
 
@@ -669,9 +953,9 @@ function setupContactForm() {
     saveContactMessages(messages);
 
     contactForm.reset();
-    contactStatus.textContent = "Envoi reussi";
+    contactStatus.textContent = t("contact_success");
     contactStatus.classList.add("is-success");
-    setSubmitLabel("Envoyé");
+    setSubmitLabel(sentLabel());
   });
 }
 function escapeHTML(value) {
@@ -685,7 +969,7 @@ function escapeHTML(value) {
 
 function starString(rating) {
   const safeRating = Math.max(1, Math.min(5, Number(rating) || 5));
-  return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`;
+  return `${"\u2605".repeat(safeRating)}${"\u2606".repeat(5 - safeRating)}`;
 }
 
 function renderProjectMedia(media, projectTitle, projectIndex, mediaIndex) {
@@ -715,10 +999,10 @@ function renderProjectSiteButton(project, context = "card") {
     : "project-site-btn";
 
   if (!url) {
-    return `<span class="${className} is-disabled" aria-disabled="true">Voir le site</span>`;
+    return `<span class="${className} is-disabled" aria-disabled="true">${escapeHTML(t("project_site_label"))}</span>`;
   }
 
-  return `<a class="${className}" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">Voir le site</a>`;
+  return `<a class="${className}" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(t("project_site_label"))}</a>`;
 }
 
 function renderProjects(projects, preservePagination = false, animateCards = false) {
@@ -756,7 +1040,7 @@ function renderProjects(projects, preservePagination = false, animateCards = fal
   if (!projects.length) {
     clearProjectBlobUrls();
     projectGrid.style.minHeight = "";
-    projectGrid.innerHTML = '<p class="project-description">Aucune creation disponible pour le moment.</p>';
+    projectGrid.innerHTML = `<p class="project-description">${escapeHTML(t("project_no_items"))}</p>`;
     renderProjectPagination(0);
     return;
   }
@@ -787,7 +1071,7 @@ function renderProjects(projects, preservePagination = false, animateCards = fal
       const cardAnimationStyle = animateCards ? ` style="--project-card-delay:${offsetIndex * 70}ms"` : "";
 
       return `
-      <article class="project-card${cardAnimationClass}"${cardAnimationStyle} data-project-index="${projectIndex}" tabindex="0" role="button" aria-label="Ouvrir ${escapeHTML(project.title)}">
+      <article class="project-card${cardAnimationClass}"${cardAnimationStyle} data-project-index="${projectIndex}" tabindex="0" role="button" aria-label="${escapeHTML(t("project_open_aria", { title: project.title }))}">
         <div class="project-media-shell">
           ${mediaMarkup}
           ${mediaCountMarkup}
@@ -797,7 +1081,7 @@ function renderProjects(projects, preservePagination = false, animateCards = fal
           <h3 class="project-title">${escapeHTML(project.title)}</h3>
           ${descriptionMarkup}
           ${siteButtonWrap}
-          <p class="project-hint">Double-clic pour afficher en detail</p>
+          <p class="project-hint">${escapeHTML(t("project_hint_dblclick"))}</p>
         </div>
       </article>
     `;
@@ -831,11 +1115,11 @@ function renderProjectPagination(totalPages) {
     const activeClass = isActive ? " is-active" : "";
     const currentAttr = isActive ? ' aria-current="page"' : "";
 
-    return `<button type="button" class="project-page-slot${activeClass}" data-project-page="${page}" aria-label="Aller a la page ${page}"${currentAttr}>${page}</button>`;
+    return `<button type="button" class="project-page-slot${activeClass}" data-project-page="${page}" aria-label="${escapeHTML(t("project_page_aria", { page }))}"${currentAttr}>${page}</button>`;
   }).join("");
 
   projectsPagination.innerHTML = `
-    <div class="projects-pagination-group" role="group" aria-label="Navigation des projets">
+    <div class="projects-pagination-group" role="group" aria-label="${escapeHTML(t("project_pagination_aria"))}">
       ${pageButtons}
     </div>
   `;
@@ -1001,8 +1285,8 @@ function ensureProjectModal() {
   modal.setAttribute("hidden", "");
   modal.innerHTML = `
     <div class="project-modal-backdrop" data-close="1"></div>
-    <div class="project-modal-dialog" role="dialog" aria-modal="true" aria-label="Détail du projet">
-      <button type="button" class="project-modal-close" data-close="1" aria-label="Fermer">×</button>
+    <div class="project-modal-dialog" role="dialog" aria-modal="true" aria-label="${escapeHTML(t("project_modal_aria"))}">
+      <button type="button" class="project-modal-close" data-close="1" aria-label="${escapeHTML(t("project_modal_close_aria"))}">&times;</button>
       <div class="project-modal-layout">
         <div class="project-modal-visual"></div>
         <aside class="project-modal-info">
@@ -1088,8 +1372,8 @@ function appendModalNavigationControls(modal) {
   const prevButton = document.createElement("button");
   prevButton.type = "button";
   prevButton.className = "project-modal-nav project-modal-nav-prev";
-  prevButton.setAttribute("aria-label", "Media precedent");
-  prevButton.textContent = "‹";
+  prevButton.setAttribute("aria-label", t("project_modal_prev_aria"));
+  prevButton.textContent = "<";
   prevButton.addEventListener("click", (event) => {
     event.stopPropagation();
     navigateModalByStep(-1);
@@ -1098,8 +1382,8 @@ function appendModalNavigationControls(modal) {
   const nextButton = document.createElement("button");
   nextButton.type = "button";
   nextButton.className = "project-modal-nav project-modal-nav-next";
-  nextButton.setAttribute("aria-label", "Media suivant");
-  nextButton.textContent = "›";
+  nextButton.setAttribute("aria-label", t("project_modal_next_aria"));
+  nextButton.textContent = ">";
   nextButton.addEventListener("click", (event) => {
     event.stopPropagation();
     navigateModalByStep(1);
@@ -1125,16 +1409,16 @@ async function openProjectModal(project, mediaIndex = 0) {
   modal.mediaIndex = safeIndex;
   modal.mediaCount = medias.length;
 
-  let dimensionsText = "Chargement...";
+  let dimensionsText = t("modal_loading");
   const details = [
-    { label: "Type", value: selected.type === "video" ? "Vidéo" : "Image" },
-    { label: "Media", value: `${safeIndex + 1}/${medias.length}` },
-    { label: "Dimensions", value: dimensionsText },
+    { label: t("modal_type"), value: selected.type === "video" ? t("modal_video") : t("modal_image") },
+    { label: t("modal_media"), value: `${safeIndex + 1}/${medias.length}` },
+    { label: t("modal_dimensions"), value: dimensionsText },
   ];
 
-  modal.meta.textContent = project.category || "Creation";
-  modal.title.textContent = project.title || "Creation sans titre";
-  modal.description.textContent = project.description || "Aucune description fournie.";
+  modal.meta.textContent = project.category || t("default_category");
+  modal.title.textContent = project.title || t("default_project_title");
+  modal.description.textContent = project.description || t("modal_no_description");
   modal.site.innerHTML = renderProjectSiteButton(project, "modal");
   fillModalDetails(modal.details, details);
 
@@ -1155,11 +1439,11 @@ async function openProjectModal(project, mediaIndex = 0) {
 
   if (!mediaSrc) {
     fillModalDetails(modal.details, [
-      { label: "Type", value: selected.type === "video" ? "Vidéo" : "Image" },
-      { label: "Media", value: `${safeIndex + 1}/${medias.length}` },
-      { label: "Dimensions", value: "Indisponible" },
+      { label: t("modal_type"), value: selected.type === "video" ? t("modal_video") : t("modal_image") },
+      { label: t("modal_media"), value: `${safeIndex + 1}/${medias.length}` },
+      { label: t("modal_dimensions"), value: t("modal_unavailable") },
     ]);
-    modal.visual.innerHTML = '<p class="project-description">Media indisponible.</p>';
+    modal.visual.innerHTML = `<p class="project-description">${escapeHTML(t("modal_no_media"))}</p>`;
     appendModalNavigationControls(modal);
     modal.root.removeAttribute("hidden");
     document.body.style.overflow = "hidden";
@@ -1177,12 +1461,12 @@ async function openProjectModal(project, mediaIndex = 0) {
     video.className = "project-modal-media";
 
     video.addEventListener("loadedmetadata", () => {
-      dimensionsText = `${video.videoWidth} × ${video.videoHeight}px`;
+      dimensionsText = `${video.videoWidth} x ${video.videoHeight}px`;
       fillModalDetails(modal.details, [
-        { label: "Type", value: "Vidéo" },
-        { label: "Media", value: `${safeIndex + 1}/${medias.length}` },
-        { label: "Dimensions", value: dimensionsText },
-        { label: "Durée", value: `${Math.round(video.duration || 0)}s` },
+        { label: t("modal_type"), value: t("modal_video") },
+        { label: t("modal_media"), value: `${safeIndex + 1}/${medias.length}` },
+        { label: t("modal_dimensions"), value: dimensionsText },
+        { label: t("modal_duration"), value: `${Math.round(video.duration || 0)}s` },
       ]);
     });
 
@@ -1191,15 +1475,15 @@ async function openProjectModal(project, mediaIndex = 0) {
   } else {
     const img = document.createElement("img");
     img.src = mediaSrc;
-    img.alt = project.title || "Projet";
+    img.alt = project.title || t("default_project_title");
     img.className = "project-modal-media";
 
     img.addEventListener("load", () => {
-      dimensionsText = `${img.naturalWidth} × ${img.naturalHeight}px`;
+      dimensionsText = `${img.naturalWidth} x ${img.naturalHeight}px`;
       fillModalDetails(modal.details, [
-        { label: "Type", value: "Image" },
-        { label: "Media", value: `${safeIndex + 1}/${medias.length}` },
-        { label: "Dimensions", value: dimensionsText },
+        { label: t("modal_type"), value: t("modal_image") },
+        { label: t("modal_media"), value: `${safeIndex + 1}/${medias.length}` },
+        { label: t("modal_dimensions"), value: dimensionsText },
       ]);
     });
 
@@ -1379,7 +1663,7 @@ function renderTestimonials(preservePagination = false) {
   const shown = visibleTestimonials.slice(0, visibleTestimonialCount);
 
   if (!shown.length) {
-    testimonialsGrid.innerHTML = '<p class="testimonial-empty">Aucun temoignage disponible.</p>';
+    testimonialsGrid.innerHTML = `<p class="testimonial-empty">${escapeHTML(t("testimonial_empty"))}</p>`;
     testimonialsToggle.hidden = true;
     if (testimonialsToggleLess) {
       testimonialsToggleLess.hidden = true;
@@ -1391,7 +1675,7 @@ function renderTestimonials(preservePagination = false) {
     .map(
       (item) => `
       <article class="testimonial-card">
-        <p class="testimonial-stars" aria-label="${item.rating} sur 5">${starString(item.rating)}</p>
+        <p class="testimonial-stars" aria-label="${item.rating} ${escapeHTML(t("rating_out_of_5"))}">${starString(item.rating)}</p>
         <p class="testimonial-message">${escapeHTML(item.message)}</p>
         <p class="testimonial-author">${escapeHTML(item.name)}</p>
       </article>
@@ -1400,14 +1684,14 @@ function renderTestimonials(preservePagination = false) {
     .join("");
 
   testimonialsToggle.hidden = visibleTestimonials.length <= visibleTestimonialCount;
-  testimonialsToggle.textContent = "Voir plus";
+  testimonialsToggle.textContent = t("testimonials_more");
 
   if (testimonialsToggleLess) {
     const canCollapse = testimonialExpanded
       && visibleTestimonials.length > TESTIMONIAL_INITIAL_COUNT
       && visibleTestimonialCount > TESTIMONIAL_INITIAL_COUNT;
     testimonialsToggleLess.hidden = !canCollapse;
-    testimonialsToggleLess.textContent = "Voir moins";
+    testimonialsToggleLess.textContent = t("testimonials_less");
   }
 }
 async function importProjects() {
@@ -1432,21 +1716,21 @@ async function importProjects() {
   }
 
   if (catalogError && !visibleProjects.length) {
-    importStatus.textContent = "Erreur d’import: verifiez data.json";
+    importStatus.textContent = t("import_error");
     return;
   }
 
   if (usingAdminProjects) {
-    importStatus.textContent = `${adminProjects.length} projet(s); Double cliquez pour voir en dimensions reelles`;
+    importStatus.textContent = t("import_admin_count", { count: adminProjects.length });
     return;
   }
 
   if (catalogError) {
-    importStatus.textContent = "Catalogue indisponible.";
+    importStatus.textContent = t("import_catalog_unavailable");
     return;
   }
 
-  importStatus.textContent = `${catalogProjects.length} projet(s) depuis data.json`;
+  importStatus.textContent = t("import_catalog_count", { count: catalogProjects.length });
 }
 
 function setupRatingPicker() {
@@ -1550,17 +1834,17 @@ function setupTestimonialForm() {
     const message = String(data.get("message") || "").trim();
 
     if (!name) {
-      testimonialStatus.textContent = "Le nom est obligatoire.";
+      testimonialStatus.textContent = t("testimonial_name_required");
       return;
     }
 
     if (!message) {
-      testimonialStatus.textContent = "Le temoignage est obligatoire.";
+      testimonialStatus.textContent = t("testimonial_message_required");
       return;
     }
 
     if (Number.isNaN(rating) || rating < 1 || rating > 5) {
-      testimonialStatus.textContent = "Veuillez choisir une note valide.";
+      testimonialStatus.textContent = t("testimonial_rating_required");
       return;
     }
 
@@ -1577,7 +1861,7 @@ function setupTestimonialForm() {
     saveTestimonials(testimonials);
     testimonialForm.reset();
     resetRatingPicker();
-    testimonialStatus.textContent = "Merci, votre temoignage a ete publie.";
+    testimonialStatus.textContent = t("testimonial_thanks");
     visibleTestimonialCount = TESTIMONIAL_INITIAL_COUNT;
     renderTestimonials();
   });
@@ -1633,16 +1917,21 @@ function updateThemeToggleLabel(choice, resolved) {
     return;
   }
 
+  const resolvedModeLabel = resolved === "dark"
+    ? t("theme_mode_dark")
+    : t("theme_mode_light");
+
   const choiceLabel = choice === "system"
-    ? `Systeme (${resolved === "dark" ? "Sombre" : "Clair"})`
+    ? t("theme_mode_system", { mode: resolvedModeLabel })
     : choice === "dark"
-      ? "Sombre"
-      : "Clair";
+      ? t("theme_mode_dark")
+      : t("theme_mode_light");
 
   const icon = resolved === "dark" ? "\u263D" : "\u2600";
+  const currentModeLabel = t("theme_current_mode", { mode: choiceLabel });
   themeToggle.textContent = icon;
-  themeToggle.title = `Mode actuel: ${choiceLabel}`;
-  themeToggle.setAttribute("aria-label", `Mode actuel: ${choiceLabel}`);
+  themeToggle.title = currentModeLabel;
+  themeToggle.setAttribute("aria-label", currentModeLabel);
 }
 
 function applyTheme(choice) {
@@ -1841,6 +2130,7 @@ window.addEventListener("focus", () => {
 });
 
 window.addEventListener("DOMContentLoaded", () => {
+  applyStaticTranslations();
   incrementPortfolioVisits();
   renderProofProjectCount();
   renderAboutStory();
