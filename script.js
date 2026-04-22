@@ -102,7 +102,7 @@ const themeMenu = document.getElementById("theme-menu");
 const themeOptions = Array.from(document.querySelectorAll(".theme-option"));
 const systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
-const PROJECTS_PER_PAGE = 4;
+const PROJECTS_PER_PAGE = 3;
 const TESTIMONIAL_INITIAL_COUNT = 4;
 const TESTIMONIAL_STEP_COUNT = 4;
 
@@ -736,6 +736,9 @@ function renderProjects(projects, preservePagination = false) {
   }
 
   projectGrid.classList.remove("is-page-leaving", "is-page-entering");
+  if (!preservePagination) {
+    projectGrid.style.minHeight = "";
+  }
   renderedProjects = projects;
 
   const totalPages = Math.max(1, Math.ceil(projects.length / PROJECTS_PER_PAGE));
@@ -752,6 +755,7 @@ function renderProjects(projects, preservePagination = false) {
 
   if (!projects.length) {
     clearProjectBlobUrls();
+    projectGrid.style.minHeight = "";
     projectGrid.innerHTML = '<p class="project-description">Aucune creation disponible pour le moment.</p>';
     renderProjectPagination(0);
     return;
@@ -857,17 +861,32 @@ function switchProjectPage(pageNumber) {
   }
 
   projectGrid.classList.remove("is-page-entering");
+  projectGrid.style.minHeight = "";
+
+  const topBefore = projectGrid.getBoundingClientRect().top;
+  const heightBefore = projectGrid.offsetHeight;
+  if (heightBefore > 0) {
+    projectGrid.style.minHeight = `${heightBefore}px`;
+  }
+
   projectGrid.classList.add("is-page-leaving");
 
   projectPageTransitionTimeout = window.setTimeout(() => {
     currentProjectPage = nextPage;
     renderProjects(renderedProjects, true);
 
+    const topAfter = projectGrid.getBoundingClientRect().top;
+    const deltaY = topAfter - topBefore;
+    if (Math.abs(deltaY) > 0.5) {
+      window.scrollBy({ top: deltaY, left: 0, behavior: "auto" });
+    }
+
     projectGrid.classList.remove("is-page-leaving");
     projectGrid.classList.add("is-page-entering");
 
     projectPageEnterTimeout = window.setTimeout(() => {
       projectGrid.classList.remove("is-page-entering");
+      projectGrid.style.minHeight = "";
       projectPageEnterTimeout = null;
     }, 260);
 
@@ -1382,7 +1401,10 @@ function renderTestimonials(preservePagination = false) {
   testimonialsToggle.textContent = "Voir plus";
 
   if (testimonialsToggleLess) {
-    testimonialsToggleLess.hidden = !(testimonialExpanded && visibleTestimonialCount > TESTIMONIAL_INITIAL_COUNT);
+    const canCollapse = testimonialExpanded
+      && visibleTestimonials.length > TESTIMONIAL_INITIAL_COUNT
+      && visibleTestimonialCount > TESTIMONIAL_INITIAL_COUNT;
+    testimonialsToggleLess.hidden = !canCollapse;
     testimonialsToggleLess.textContent = "Voir moins";
   }
 }
@@ -1513,6 +1535,9 @@ function setupTestimonialForm() {
   }
 
   const resetRatingPicker = setupRatingPicker();
+  if (testimonialsToggleLess) {
+    testimonialsToggleLess.hidden = true;
+  }
 
   testimonialForm.addEventListener("submit", (event) => {
     event.preventDefault();

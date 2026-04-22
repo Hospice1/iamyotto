@@ -588,12 +588,12 @@ main p {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
-  transition: opacity 220ms ease, transform 220ms ease;
+  overflow-anchor: none;
+  transition: opacity 220ms ease;
 }
 
 .project-grid.is-page-leaving {
   opacity: 0;
-  transform: translateY(12px);
   pointer-events: none;
 }
 
@@ -604,15 +604,12 @@ main p {
 @keyframes projectGridEnter {
   from {
     opacity: 0;
-    transform: translateY(-10px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
-
 .projects-footer {
   display: flex;
   justify-content: center;
