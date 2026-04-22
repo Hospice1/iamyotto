@@ -263,7 +263,8 @@ h3 {
 }
 
 .about-profile-form input[type="text"],
-.about-profile-form input[type="file"] {
+.about-profile-form input[type="file"],
+.about-profile-form textarea {
   border: 1px solid rgba(91, 33, 182, 0.2);
   border-radius: 12px;
   padding: 0.74rem;
@@ -272,8 +273,14 @@ h3 {
 }
 
 .about-profile-form input[type="text"]:focus,
-.about-profile-form input[type="file"]:focus {
+.about-profile-form input[type="file"]:focus,
+.about-profile-form textarea:focus {
   outline: 2px solid rgba(91, 33, 182, 0.25);
+}
+
+.about-profile-form textarea {
+  min-height: 180px;
+  resize: vertical;
 }
 
 .about-profile-preview {
@@ -326,6 +333,17 @@ h3 {
 .admin-item h3 {
   margin: 0;
   font-size: 1rem;
+}
+
+.admin-project-link {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.admin-project-link:hover,
+.admin-project-link:focus-visible {
+  text-decoration: underline;
 }
 
 .admin-category {

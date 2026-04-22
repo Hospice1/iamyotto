@@ -5,6 +5,7 @@ const CONTACT_MESSAGES_KEY = "iamyotto_contact_messages";
 const DASHBOARD_PROJECT_COUNT_KEY = "iamyotto_dashboard_project_count";
 const PORTFOLIO_VISITS_KEY = "iamyotto_portfolio_visits";
 const ABOUT_PROFILE_KEY = "iamyotto_about_profile";
+const ABOUT_STORY_KEY = "iamyotto_about_story";
 
 const INITIAL_TESTIMONIALS = [
   {
@@ -80,8 +81,7 @@ const INITIAL_TESTIMONIALS = [
 const projectGrid = document.getElementById("project-grid");
 const importStatus = document.getElementById("import-status");
 const heroProjectsButton = document.getElementById("hero-projects-btn");
-const projectsToggle = document.getElementById("projects-toggle");
-const projectsToggleLess = document.getElementById("projects-toggle-less");
+const projectsPagination = document.getElementById("projects-pagination");
 
 const testimonialsGrid = document.getElementById("testimonials-grid");
 const testimonialsToggle = document.getElementById("testimonials-toggle");
@@ -94,6 +94,7 @@ const contactSubmit = document.getElementById("contact-submit");
 const proofProjectCount = document.getElementById("proof-project-count");
 const aboutPhoto = document.getElementById("about-photo");
 const aboutCaptionText = document.getElementById("about-caption-text");
+const aboutCopy = document.getElementById("about-copy");
 const whatsappMessage = document.getElementById("whatsapp-message");
 const whatsappMessageClose = document.getElementById("whatsapp-message-close");
 const themeToggle = document.getElementById("theme-toggle");
@@ -101,14 +102,12 @@ const themeMenu = document.getElementById("theme-menu");
 const themeOptions = Array.from(document.querySelectorAll(".theme-option"));
 const systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
-const PROJECT_INITIAL_COUNT = 6;
-const PROJECT_STEP_COUNT = 10;
+const PROJECTS_PER_PAGE = 4;
 const TESTIMONIAL_INITIAL_COUNT = 4;
 const TESTIMONIAL_STEP_COUNT = 4;
 
-let visibleProjectCount = PROJECT_INITIAL_COUNT;
+let currentProjectPage = 1;
 let visibleTestimonialCount = TESTIMONIAL_INITIAL_COUNT;
-let projectExpanded = false;
 let testimonialExpanded = false;
 let renderedProjects = [];
 const previewIntervals = new Map();
@@ -117,12 +116,30 @@ const projectBlobUrls = new Set();
 let modalBlobUrl = "";
 let modalState = null;
 let modalAutoSlideInterval = null;
+let projectPageTransitionTimeout = null;
+let projectPageEnterTimeout = null;
 let aboutPhotoBlobUrl = "";
 let touchTapState = {
   cardKey: "",
   at: 0,
 };
 let whatsappMessageDismissed = false;
+
+const DEFAULT_ABOUT_STORY = (() => {
+  if (!(aboutCopy instanceof HTMLElement)) {
+    return "Je m'appelle Hospice YOTTO, fondateur de iamyotto Co.";
+  }
+
+  const paragraphs = Array.from(aboutCopy.querySelectorAll("p"))
+    .map((paragraph) => String(paragraph.textContent || "").trim())
+    .filter(Boolean);
+
+  if (!paragraphs.length) {
+    return "Je m'appelle Hospice YOTTO, fondateur de iamyotto Co.";
+  }
+
+  return paragraphs.join("\n\n");
+})();
 
 async function loadCatalogData() {
   const response = await fetch("data.json", { cache: "no-store" });
@@ -146,6 +163,75 @@ function inferMediaType(value) {
   }
 
   return "image";
+}
+
+function isWebDesignCategory(value) {
+  return /^web\s*design$/i.test(String(value || "").trim());
+}
+
+function normalizeWebsiteUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+  try {
+    const parsed = new URL(withProtocol);
+    if (!/^https?:$/i.test(parsed.protocol)) {
+      return "";
+    }
+
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
+function normalizeAboutStoryText(value) {
+  const text = String(value || "").replace(/\r\n/g, "\n").trim();
+  return text || DEFAULT_ABOUT_STORY;
+}
+
+function splitAboutStoryParagraphs(storyText) {
+  return normalizeAboutStoryText(storyText)
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+function loadAboutStory() {
+  try {
+    const raw = localStorage.getItem(ABOUT_STORY_KEY);
+    if (!raw) {
+      return DEFAULT_ABOUT_STORY;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "string") {
+      return normalizeAboutStoryText(parsed);
+    }
+
+    if (parsed && typeof parsed.story === "string") {
+      return normalizeAboutStoryText(parsed.story);
+    }
+
+    return normalizeAboutStoryText(raw);
+  } catch {
+    return DEFAULT_ABOUT_STORY;
+  }
+}
+
+function renderAboutStory() {
+  if (!(aboutCopy instanceof HTMLElement)) {
+    return;
+  }
+
+  const paragraphs = splitAboutStoryParagraphs(loadAboutStory());
+  aboutCopy.innerHTML = paragraphs
+    .map((paragraph) => `<p>${escapeHTML(paragraph)}</p>`)
+    .join("");
 }
 
 function getMediaStore() {
@@ -275,6 +361,7 @@ function normalizeProject(item) {
   const category = String(item?.category || item?.categorie || "Creation").trim();
   const title = String(item?.titre || item?.title || "Creation sans titre").trim();
   const description = String(item?.description || "").trim();
+  const websiteUrl = normalizeWebsiteUrl(item?.websiteUrl || item?.siteUrl || item?.link || "");
   const medias = extractProjectMedias(item);
 
   if (!medias.length) {
@@ -285,6 +372,7 @@ function normalizeProject(item) {
     title: title || "Creation sans titre",
     category: category || "Creation",
     description,
+    websiteUrl,
     image: String(medias[0]?.src || ""),
     medias,
   };
@@ -616,16 +704,45 @@ function renderProjectMedia(media, projectTitle, projectIndex, mediaIndex) {
   return `<img class="project-media" data-project-media="1" data-storage="${storage}" data-media-id="${mediaId}" data-inline-src="${inlineSrc}" data-project-index="${projectIndex}" data-media-index="${mediaIndex}"${srcAttr} alt="${escapeHTML(projectTitle)}" loading="lazy" />`;
 }
 
+function renderProjectSiteButton(project, context = "card") {
+  if (!isWebDesignCategory(project?.category)) {
+    return "";
+  }
+
+  const url = normalizeWebsiteUrl(project?.websiteUrl || project?.siteUrl || project?.link || "");
+  const className = context === "modal"
+    ? "project-site-btn project-site-btn-modal"
+    : "project-site-btn";
+
+  if (!url) {
+    return `<span class="${className} is-disabled" aria-disabled="true">Voir le site</span>`;
+  }
+
+  return `<a class="${className}" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">Voir le site</a>`;
+}
+
 function renderProjects(projects, preservePagination = false) {
   if (!projectGrid) {
     return;
   }
 
+  if (projectPageTransitionTimeout) {
+    clearTimeout(projectPageTransitionTimeout);
+    projectPageTransitionTimeout = null;
+  }
+  if (projectPageEnterTimeout) {
+    clearTimeout(projectPageEnterTimeout);
+    projectPageEnterTimeout = null;
+  }
+
+  projectGrid.classList.remove("is-page-leaving", "is-page-entering");
   renderedProjects = projects;
 
+  const totalPages = Math.max(1, Math.ceil(projects.length / PROJECTS_PER_PAGE));
   if (!preservePagination) {
-    visibleProjectCount = PROJECT_INITIAL_COUNT;
-    projectExpanded = false;
+    currentProjectPage = 1;
+  } else {
+    currentProjectPage = Math.max(1, Math.min(totalPages, currentProjectPage));
   }
 
   previewIntervals.forEach((intervalId) => {
@@ -636,29 +753,31 @@ function renderProjects(projects, preservePagination = false) {
   if (!projects.length) {
     clearProjectBlobUrls();
     projectGrid.innerHTML = '<p class="project-description">Aucune creation disponible pour le moment.</p>';
-    if (projectsToggle) {
-      projectsToggle.hidden = true;
-    }
-    if (projectsToggleLess) {
-      projectsToggleLess.hidden = true;
-    }
+    renderProjectPagination(0);
     return;
   }
 
-  const clampedVisibleCount = Math.min(projects.length, Math.max(PROJECT_INITIAL_COUNT, visibleProjectCount));
-  const shownProjects = projects.slice(0, clampedVisibleCount);
+  const startIndex = (currentProjectPage - 1) * PROJECTS_PER_PAGE;
+  const shownProjects = projects.slice(startIndex, startIndex + PROJECTS_PER_PAGE);
 
   projectGrid.innerHTML = shownProjects
-    .map((project, projectIndex) => {
+    .map((project, offsetIndex) => {
+      const projectIndex = startIndex + offsetIndex;
       const medias = Array.isArray(project.medias) ? project.medias : [{ src: project.image, type: "image" }];
       const description = String(project.description || "").trim();
       const descriptionMarkup = description
         ? `<p class="project-description">${escapeHTML(description)}</p>`
         : "";
 
-      const mediaMarkup = medias.map((media, mediaIndex) => renderProjectMedia(media, project.title, projectIndex, mediaIndex)).join("");
+      const mediaMarkup = medias
+        .map((media, mediaIndex) => renderProjectMedia(media, project.title, projectIndex, mediaIndex))
+        .join("");
       const mediaCountMarkup = medias.length > 1
         ? `<span class="project-media-count">${medias.length}</span>`
+        : "";
+      const siteButtonMarkup = renderProjectSiteButton(project, "card");
+      const siteButtonWrap = siteButtonMarkup
+        ? `<div class="project-site-wrap">${siteButtonMarkup}</div>`
         : "";
 
       return `
@@ -671,7 +790,8 @@ function renderProjects(projects, preservePagination = false) {
           <p class="project-meta">${escapeHTML(project.category)}</p>
           <h3 class="project-title">${escapeHTML(project.title)}</h3>
           ${descriptionMarkup}
-          <p class="project-hint">Double-clic pour afficher en détail</p>
+          ${siteButtonWrap}
+          <p class="project-hint">Double-clic pour afficher en detail</p>
         </div>
       </article>
     `;
@@ -682,20 +802,77 @@ function renderProjects(projects, preservePagination = false) {
     setCardMedia(card, 0, false);
   });
 
-  if (projectsToggle) {
-    const canShowMore = shownProjects.length < projects.length;
-    projectsToggle.hidden = !canShowMore;
-    projectsToggle.textContent = "Voir plus";
-  }
-
-  if (projectsToggleLess) {
-    const canShowLess = projectExpanded && projects.length > PROJECT_INITIAL_COUNT && clampedVisibleCount > PROJECT_INITIAL_COUNT;
-    projectsToggleLess.hidden = !canShowLess;
-    projectsToggleLess.textContent = "Voir moins";
-  }
-
+  renderProjectPagination(totalPages);
   setupProjectInteractions();
   void hydrateProjectMediaElements();
+}
+
+function renderProjectPagination(totalPages) {
+  if (!projectsPagination) {
+    return;
+  }
+
+  if (totalPages <= 1) {
+    projectsPagination.hidden = true;
+    projectsPagination.innerHTML = "";
+    return;
+  }
+
+  projectsPagination.hidden = false;
+  const pageButtons = Array.from({ length: totalPages }, (_, index) => {
+    const page = index + 1;
+    const isActive = page === currentProjectPage;
+    const activeClass = isActive ? " is-active" : "";
+    const currentAttr = isActive ? ' aria-current="page"' : "";
+
+    return `<button type="button" class="project-page-slot${activeClass}" data-project-page="${page}" aria-label="Aller a la page ${page}"${currentAttr}>${page}</button>`;
+  }).join("");
+
+  projectsPagination.innerHTML = `
+    <div class="projects-pagination-group" role="group" aria-label="Navigation des projets">
+      ${pageButtons}
+    </div>
+  `;
+}
+
+function switchProjectPage(pageNumber) {
+  if (!projectGrid || !renderedProjects.length) {
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(renderedProjects.length / PROJECTS_PER_PAGE));
+  const nextPage = Math.max(1, Math.min(totalPages, Number(pageNumber) || 1));
+
+  if (nextPage === currentProjectPage) {
+    return;
+  }
+
+  if (projectPageTransitionTimeout) {
+    clearTimeout(projectPageTransitionTimeout);
+    projectPageTransitionTimeout = null;
+  }
+  if (projectPageEnterTimeout) {
+    clearTimeout(projectPageEnterTimeout);
+    projectPageEnterTimeout = null;
+  }
+
+  projectGrid.classList.remove("is-page-entering");
+  projectGrid.classList.add("is-page-leaving");
+
+  projectPageTransitionTimeout = window.setTimeout(() => {
+    currentProjectPage = nextPage;
+    renderProjects(renderedProjects, true);
+
+    projectGrid.classList.remove("is-page-leaving");
+    projectGrid.classList.add("is-page-entering");
+
+    projectPageEnterTimeout = window.setTimeout(() => {
+      projectGrid.classList.remove("is-page-entering");
+      projectPageEnterTimeout = null;
+    }, 260);
+
+    projectPageTransitionTimeout = null;
+  }, 220);
 }
 function setCardMedia(card, mediaIndex, autoplay) {
   const mediaNodes = Array.from(card.querySelectorAll(".project-media"));
@@ -811,6 +988,7 @@ function ensureProjectModal() {
           <p class="project-modal-meta"></p>
           <h3 class="project-modal-title"></h3>
           <p class="project-modal-description"></p>
+          <div class="project-modal-site"></div>
           <ul class="project-modal-details"></ul>
         </aside>
       </div>
@@ -823,10 +1001,11 @@ function ensureProjectModal() {
   const meta = modal.querySelector(".project-modal-meta");
   const title = modal.querySelector(".project-modal-title");
   const description = modal.querySelector(".project-modal-description");
+  const site = modal.querySelector(".project-modal-site");
   const details = modal.querySelector(".project-modal-details");
 
   if (!(visual instanceof HTMLElement) || !(meta instanceof HTMLElement) || !(title instanceof HTMLElement)
-    || !(description instanceof HTMLElement) || !(details instanceof HTMLElement)) {
+    || !(description instanceof HTMLElement) || !(site instanceof HTMLElement) || !(details instanceof HTMLElement)) {
     return null;
   }
 
@@ -864,6 +1043,7 @@ function ensureProjectModal() {
     meta,
     title,
     description,
+    site,
     details,
     project: null,
     mediaIndex: 0,
@@ -934,6 +1114,7 @@ async function openProjectModal(project, mediaIndex = 0) {
   modal.meta.textContent = project.category || "Creation";
   modal.title.textContent = project.title || "Creation sans titre";
   modal.description.textContent = project.description || "Aucune description fournie.";
+  modal.site.innerHTML = renderProjectSiteButton(project, "modal");
   fillModalDetails(modal.details, details);
 
   modal.visual.innerHTML = "";
@@ -1043,6 +1224,10 @@ function setupProjectInteractions() {
     });
 
     card.addEventListener("pointerdown", (event) => {
+      if (event.target instanceof Element && event.target.closest(".project-site-btn")) {
+        return;
+      }
+
       if (event.pointerType === "touch" || event.pointerType === "pen") {
         startCardPreview(card);
 
@@ -1061,6 +1246,10 @@ function setupProjectInteractions() {
     });
 
     card.addEventListener("pointerup", (event) => {
+      if (event.target instanceof Element && event.target.closest(".project-site-btn")) {
+        return;
+      }
+
       if (event.pointerType !== "touch" && event.pointerType !== "pen") {
         return;
       }
@@ -1089,7 +1278,11 @@ function setupProjectInteractions() {
       touchTapState = { cardKey: "", at: 0 };
     });
 
-    card.addEventListener("dblclick", () => {
+    card.addEventListener("dblclick", (event) => {
+      if (event.target instanceof Element && event.target.closest(".project-site-btn")) {
+        return;
+      }
+
       const projectIndex = Number(card.dataset.projectIndex);
       if (Number.isNaN(projectIndex)) {
         return;
@@ -1100,6 +1293,10 @@ function setupProjectInteractions() {
     });
 
     card.addEventListener("keydown", (event) => {
+      if (event.target instanceof Element && event.target.closest(".project-site-btn")) {
+        return;
+      }
+
       if (event.key !== "Enter") {
         return;
       }
@@ -1113,28 +1310,36 @@ function setupProjectInteractions() {
       void openProjectModal(renderedProjects[projectIndex], Number(card.dataset.activeMedia || 0));
     });
   });
+
+  const siteButtons = Array.from(document.querySelectorAll(".project-site-btn"));
+  siteButtons.forEach((button) => {
+    button.addEventListener("click", (event) => event.stopPropagation());
+    button.addEventListener("dblclick", (event) => event.stopPropagation());
+    button.addEventListener("pointerdown", (event) => event.stopPropagation());
+    button.addEventListener("pointerup", (event) => event.stopPropagation());
+    button.addEventListener("keydown", (event) => event.stopPropagation());
+  });
 }
 
 
-function setupProjectsToggle() {
-  projectsToggle?.addEventListener("click", () => {
-    if (!renderedProjects.length) {
+function setupProjectsPagination() {
+  projectsPagination?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
       return;
     }
 
-    projectExpanded = true;
-    visibleProjectCount = Math.min(renderedProjects.length, visibleProjectCount + PROJECT_STEP_COUNT);
-    renderProjects(renderedProjects, true);
-  });
-
-  projectsToggleLess?.addEventListener("click", () => {
-    if (!renderedProjects.length) {
+    const button = target.closest(".project-page-slot");
+    if (!(button instanceof HTMLButtonElement)) {
       return;
     }
 
-    projectExpanded = false;
-    visibleProjectCount = PROJECT_INITIAL_COUNT;
-    renderProjects(renderedProjects, true);
+    const page = Number(button.dataset.projectPage || "");
+    if (Number.isNaN(page)) {
+      return;
+    }
+
+    switchProjectPage(page);
   });
 }
 
@@ -1593,25 +1798,31 @@ window.addEventListener("storage", (event) => {
   if (event.key === ABOUT_PROFILE_KEY) {
     void renderAboutProfile();
   }
+
+  if (event.key === ABOUT_STORY_KEY) {
+    renderAboutStory();
+  }
 });
 
 window.addEventListener("focus", () => {
   importProjects();
   renderTestimonials();
   renderProofProjectCount();
+  renderAboutStory();
   void renderAboutProfile();
 });
 
 window.addEventListener("DOMContentLoaded", () => {
   incrementPortfolioVisits();
   renderProofProjectCount();
+  renderAboutStory();
   void renderAboutProfile();
   ensureTestimonialsSeeded();
   setupThemeSwitcher();
   setupScrollReveal();
   setupActiveNav();
   setupWhatsappWidget();
-  setupProjectsToggle();
+  setupProjectsPagination();
   setupTestimonialForm();
   setupContactForm();
   renderTestimonials();
@@ -1619,6 +1830,15 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 window.addEventListener("beforeunload", () => {
+  if (projectPageTransitionTimeout) {
+    clearTimeout(projectPageTransitionTimeout);
+    projectPageTransitionTimeout = null;
+  }
+  if (projectPageEnterTimeout) {
+    clearTimeout(projectPageEnterTimeout);
+    projectPageEnterTimeout = null;
+  }
+
   if (aboutPhotoBlobUrl) {
     URL.revokeObjectURL(aboutPhotoBlobUrl);
     aboutPhotoBlobUrl = "";

@@ -4,11 +4,19 @@ const CONTACT_MESSAGES_KEY = "iamyotto_contact_messages";
 const DASHBOARD_PROJECT_COUNT_KEY = "iamyotto_dashboard_project_count";
 const PORTFOLIO_VISITS_KEY = "iamyotto_portfolio_visits";
 const ABOUT_PROFILE_KEY = "iamyotto_about_profile";
+const ABOUT_STORY_KEY = "iamyotto_about_story";
 const ADMIN_SESSION_KEY = "iamyotto_admin_session";
 const ADMIN_HISTORY_KEY = "iamyotto_admin_history";
 const ADMIN_PASSWORD = "AZERTY1234";
 const CATALOG_PATH = "data.json";
 const HISTORY_LIMIT = 30;
+const DEFAULT_ABOUT_STORY = [
+  "Je m'appelle Hospice YOTTO, fondateur de iamyotto Co. Je cree des identites visuelles qui ne se contentent pas d'etre belles - elles marquent, elles vendent, elles racontent.",
+  "Designer depuis plus de 3 ans, je me suis passionne pour la maniere dont le visuel transforme une idee en experience. Pour moi, chaque projet est une combinaison de storytelling, de strategie et d'esthetique.",
+  "Je ne me limite a aucun style. Mon travail navigue entre design imprime et experiences digitales, avec un objectif simple: creer des visuels qui captent l'attention et restent en memoire.",
+  "Chaque collaboration est un processus construit avec le client. Je traduis des visions en identites fortes, en mettant l'accent sur la clarte, l'impact et la differenciation.",
+  "Mon approche repose sur des compositions epurees, des choix audacieux et une recherche constante d'evolution.",
+].join("\n\n");
 
 const INITIAL_TESTIMONIALS = [
   {
@@ -122,6 +130,9 @@ const aboutRoleText = document.getElementById("about-role-text");
 const aboutPhotoFile = document.getElementById("about-photo-file");
 const aboutPhotoPreview = document.getElementById("about-photo-preview");
 const aboutProfileStatus = document.getElementById("about-profile-status");
+const aboutStoryText = document.getElementById("about-story-text");
+const websiteUrlInput = form?.querySelector('input[name="websiteUrl"]');
+const dashboardResetVisitsBtn = document.getElementById("dashboard-reset-visits");
 
 let editMediaDraft = [];
 const adminBlobUrls = new Set();
@@ -187,6 +198,67 @@ function inferMediaType(value) {
   }
 
   return "image";
+}
+
+function isWebDesignCategory(value) {
+  return /^web\s*design$/i.test(String(value || "").trim());
+}
+
+function normalizeWebsiteUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+  try {
+    const parsed = new URL(withProtocol);
+    if (!/^https?:$/i.test(parsed.protocol)) {
+      return "";
+    }
+
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
+function normalizeAboutStoryText(value) {
+  const text = String(value || "").replace(/\r\n/g, "\n").trim();
+  return text || DEFAULT_ABOUT_STORY;
+}
+
+function loadAboutStory() {
+  try {
+    const raw = localStorage.getItem(ABOUT_STORY_KEY);
+    if (!raw) {
+      return DEFAULT_ABOUT_STORY;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "string") {
+      return normalizeAboutStoryText(parsed);
+    }
+
+    if (parsed && typeof parsed.story === "string") {
+      return normalizeAboutStoryText(parsed.story);
+    }
+
+    return normalizeAboutStoryText(raw);
+  } catch {
+    return DEFAULT_ABOUT_STORY;
+  }
+}
+
+function saveAboutStory(storyText) {
+  try {
+    localStorage.setItem(ABOUT_STORY_KEY, JSON.stringify(normalizeAboutStoryText(storyText)));
+    return true;
+  } catch (error) {
+    console.error("Stockage texte a propos plein", error);
+    return false;
+  }
 }
 
 function normalizeMediaEntry(entry) {
@@ -256,6 +328,7 @@ function normalizeProject(item) {
   const title = String(item?.title || item?.titre || "Creation sans titre").trim();
   const description = String(item?.description || "").trim();
   const catalogRef = String(item?.catalogRef || "").trim();
+  const websiteUrl = normalizeWebsiteUrl(item?.websiteUrl || item?.siteUrl || item?.link || "");
 
   const medias = extractProjectMedias(item);
   if (!medias.length) {
@@ -267,6 +340,7 @@ function normalizeProject(item) {
     category: category || "Creation",
     title: title || "Creation sans titre",
     description,
+    websiteUrl,
     image: String(medias[0]?.src || ""),
     medias,
     createdAt: item?.createdAt || new Date().toISOString(),
@@ -458,6 +532,7 @@ function loadProjects() {
         || !item?.title
         || !item?.category
         || String(item?.description || "") !== normalizedItem.description
+        || String(item?.websiteUrl || item?.siteUrl || item?.link || "") !== normalizedItem.websiteUrl
         || String(item?.image || "") !== normalizedItem.image
         || oldMediaJSON !== nextMediaJSON
         || String(item?.catalogRef || "") !== String(normalizedItem.catalogRef || "");
@@ -811,6 +886,10 @@ async function renderAboutProfileEditor() {
   const profile = loadAboutProfile();
   aboutRoleText.value = profile.roleText || "Designer";
 
+  if (aboutStoryText instanceof HTMLTextAreaElement) {
+    aboutStoryText.value = loadAboutStory();
+  }
+
   if (aboutPhotoFile instanceof HTMLInputElement) {
     aboutPhotoFile.value = "";
   }
@@ -930,6 +1009,10 @@ function historyLabel(entry) {
       return `Ordre modifié: ${entry.title || "création"}`;
     case "clear_all":
       return "Toutes les créations ont été supprimées";
+    case "reset_visits":
+      return "Compteur des visites réinitialisé";
+    case "update_about":
+      return "Section A propos mise a jour";
     default:
       return entry.type || "Action";
   }
@@ -1028,6 +1111,10 @@ function setCreateMode() {
   editMediaDraft = [];
   renderEditMediaDraft();
 
+  if (websiteUrlInput instanceof HTMLInputElement) {
+    websiteUrlInput.value = "";
+  }
+
   if (submitProjectBtn) {
     submitProjectBtn.textContent = "Ajouter la création";
   }
@@ -1052,6 +1139,11 @@ function setEditMode(project) {
   categoryInput.value = project.category;
   titleInput.value = project.title;
   descriptionInput.value = project.description || "";
+
+  if (websiteUrlInput instanceof HTMLInputElement) {
+    websiteUrlInput.value = String(project.websiteUrl || "");
+  }
+
   editMediaDraft = cloneJSON(project.medias || []);
   renderEditMediaDraft();
 
@@ -1086,14 +1178,19 @@ function renderProjectList() {
   }
 
   list.innerHTML = projects
-    .map(
-      (project, index) => `
+    .map((project, index) => {
+      const websiteMarkup = project.websiteUrl
+        ? `<p class="admin-status"><a class="admin-project-link" href="${escapeHTML(project.websiteUrl)}" target="_blank" rel="noopener noreferrer">Voir le site</a></p>`
+        : "";
+
+      return `
       <article class="admin-item">
         ${projectPreviewMarkup(project)}
         <div class="admin-item-body">
           <p class="admin-category">${escapeHTML(project.category)}</p>
           <h3>${escapeHTML(project.title)}</h3>
           <p class="admin-status">${project.medias.length} media(s)</p>
+          ${websiteMarkup}
           <div class="admin-item-actions">
             <button class="order-btn" type="button" data-order="up" data-id="${escapeHTML(project.id)}" ${index === 0 ? "disabled" : ""}>Monter</button>
             <button class="order-btn" type="button" data-order="down" data-id="${escapeHTML(project.id)}" ${index === projects.length - 1 ? "disabled" : ""}>Descendre</button>
@@ -1102,8 +1199,8 @@ function renderProjectList() {
           </div>
         </div>
       </article>
-    `
-    )
+    `;
+    })
     .join("");
 
   void hydrateAdminMediaElements();
@@ -1253,11 +1350,27 @@ form?.addEventListener("submit", async (event) => {
   const category = String(data.get("categorie") || "").trim();
   const title = String(data.get("titre") || "").trim();
   const description = String(data.get("description") || "").trim();
+  const websiteRaw = String(data.get("websiteUrl") || "").trim();
+  const websiteUrl = normalizeWebsiteUrl(websiteRaw);
   const files = Array.from(imageFilesInput?.files || []);
 
   if (!category || !title) {
     if (statusBox) {
       statusBox.textContent = "Categorie et titre sont obligatoires.";
+    }
+    return;
+  }
+
+  if (websiteRaw && !websiteUrl) {
+    if (statusBox) {
+      statusBox.textContent = "Le lien du site est invalide. Utilisez un format du type https://monsite.com.";
+    }
+    return;
+  }
+
+  if (isWebDesignCategory(category) && !websiteUrl) {
+    if (statusBox) {
+      statusBox.textContent = "Pour la categorie Web Design, le lien du site est obligatoire.";
     }
     return;
   }
@@ -1302,6 +1415,7 @@ form?.addEventListener("submit", async (event) => {
       category,
       title,
       description,
+      websiteUrl,
       medias,
       createdAt: currentProject.createdAt,
       catalogRef: currentProject.catalogRef,
@@ -1357,6 +1471,7 @@ form?.addEventListener("submit", async (event) => {
     category,
     title,
     description,
+    websiteUrl,
     medias,
   });
 
@@ -1590,10 +1705,23 @@ dashboardForm?.addEventListener("submit", (event) => {
   }
 });
 
+dashboardResetVisitsBtn?.addEventListener("click", () => {
+  localStorage.setItem(PORTFOLIO_VISITS_KEY, "0");
+  renderDashboardPanel();
+  pushHistory({
+    type: "reset_visits",
+  });
+
+  if (dashboardStatus) {
+    dashboardStatus.textContent = "Compteur de visites reinitialise.";
+  }
+});
+
 aboutProfileForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const roleText = String(aboutRoleText?.value || "").trim() || "Designer";
+  const storyText = normalizeAboutStoryText(aboutStoryText?.value || "");
   const currentProfile = loadAboutProfile();
   let nextProfile = normalizeAboutProfile({
     ...currentProfile,
@@ -1668,6 +1796,17 @@ aboutProfileForm?.addEventListener("submit", async (event) => {
     return;
   }
 
+  if (!saveAboutStory(storyText)) {
+    if (aboutProfileStatus) {
+      aboutProfileStatus.textContent = "Impossible d'enregistrer le texte A propos: stockage plein.";
+    }
+    return;
+  }
+
+  pushHistory({
+    type: "update_about",
+  });
+
   await renderAboutProfileEditor();
   if (aboutProfileStatus) {
     aboutProfileStatus.textContent = "Section A propos mise a jour.";
@@ -1724,7 +1863,7 @@ window.addEventListener("storage", (event) => {
     renderDashboardPanel();
   }
 
-  if (event.key === ABOUT_PROFILE_KEY) {
+  if (event.key === ABOUT_PROFILE_KEY || event.key === ABOUT_STORY_KEY) {
     void renderAboutProfileEditor();
   }
 });
