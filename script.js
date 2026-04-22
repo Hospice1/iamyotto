@@ -721,7 +721,7 @@ function renderProjectSiteButton(project, context = "card") {
   return `<a class="${className}" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">Voir le site</a>`;
 }
 
-function renderProjects(projects, preservePagination = false) {
+function renderProjects(projects, preservePagination = false, animateCards = false) {
   if (!projectGrid) {
     return;
   }
@@ -783,9 +783,11 @@ function renderProjects(projects, preservePagination = false) {
       const siteButtonWrap = siteButtonMarkup
         ? `<div class="project-site-wrap">${siteButtonMarkup}</div>`
         : "";
+      const cardAnimationClass = animateCards ? " is-entering" : "";
+      const cardAnimationStyle = animateCards ? ` style="--project-card-delay:${offsetIndex * 70}ms"` : "";
 
       return `
-      <article class="project-card" data-project-index="${projectIndex}" tabindex="0" role="button" aria-label="Ouvrir ${escapeHTML(project.title)}">
+      <article class="project-card${cardAnimationClass}"${cardAnimationStyle} data-project-index="${projectIndex}" tabindex="0" role="button" aria-label="Ouvrir ${escapeHTML(project.title)}">
         <div class="project-media-shell">
           ${mediaMarkup}
           ${mediaCountMarkup}
@@ -873,7 +875,7 @@ function switchProjectPage(pageNumber) {
 
   projectPageTransitionTimeout = window.setTimeout(() => {
     currentProjectPage = nextPage;
-    renderProjects(renderedProjects, true);
+    renderProjects(renderedProjects, true, true);
 
     const topAfter = projectGrid.getBoundingClientRect().top;
     const deltaY = topAfter - topBefore;
@@ -1637,7 +1639,8 @@ function updateThemeToggleLabel(choice, resolved) {
       ? "Sombre"
       : "Clair";
 
-  themeToggle.textContent = "Theme";
+  const icon = resolved === "dark" ? "\u263D" : "\u2600";
+  themeToggle.textContent = icon;
   themeToggle.title = `Mode actuel: ${choiceLabel}`;
   themeToggle.setAttribute("aria-label", `Mode actuel: ${choiceLabel}`);
 }
