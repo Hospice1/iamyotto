@@ -129,6 +129,7 @@ let touchTapState = {
   at: 0,
 };
 let whatsappMessageDismissed = false;
+const cloudSync = window.IamyottoSync || null;
 
 const TRANSLATIONS = {
   en: {
@@ -769,6 +770,7 @@ function loadTestimonials() {
 
 function saveTestimonials(testimonials) {
   localStorage.setItem(TESTIMONIALS_KEY, JSON.stringify(testimonials));
+  cloudSync?.schedulePush?.();
 }
 
 function normalizeContactMessage(item) {
@@ -800,6 +802,7 @@ function loadContactMessages() {
 
 function saveContactMessages(messages) {
   localStorage.setItem(CONTACT_MESSAGES_KEY, JSON.stringify(messages));
+  cloudSync?.schedulePush?.();
 }
 
 function normalizeAboutProfile(value) {
@@ -910,6 +913,7 @@ function incrementPortfolioVisits() {
   const current = Number(localStorage.getItem(PORTFOLIO_VISITS_KEY));
   const safeCurrent = Number.isFinite(current) && current >= 0 ? Math.floor(current) : 0;
   localStorage.setItem(PORTFOLIO_VISITS_KEY, String(safeCurrent + 1));
+  cloudSync?.schedulePush?.(1200);
 }
 
 async function sendContactNotification({ name, email, message }) {
@@ -993,6 +997,14 @@ function setupContactForm() {
       setSubmitDisabled(false);
       setSubmitLabel(idleLabel());
       return;
+    }
+
+    if (cloudSync?.pullLatestToLocal) {
+      try {
+        await cloudSync.pullLatestToLocal();
+      } catch (error) {
+        console.error("Cloud sync pull failed before contact submit", error);
+      }
     }
 
     const messages = loadContactMessages();
@@ -1884,7 +1896,7 @@ function setupTestimonialForm() {
     testimonialsToggleLess.hidden = true;
   }
 
-  testimonialForm.addEventListener("submit", (event) => {
+  testimonialForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const data = new FormData(testimonialForm);
@@ -1905,6 +1917,14 @@ function setupTestimonialForm() {
     if (Number.isNaN(rating) || rating < 1 || rating > 5) {
       testimonialStatus.textContent = t("testimonial_rating_required");
       return;
+    }
+
+    if (cloudSync?.pullLatestToLocal) {
+      try {
+        await cloudSync.pullLatestToLocal();
+      } catch (error) {
+        console.error("Cloud sync pull failed before testimonial submit", error);
+      }
     }
 
     const testimonials = loadTestimonials();
@@ -2220,6 +2240,26 @@ function setupWhatsappWidget() {
 
   window.addEventListener("scroll", revealMessage, { passive: true });
 }
+
+async function renderPortfolioSections() {
+  await importProjects();
+  renderTestimonials();
+  renderProofProjectCount();
+  renderAboutStory();
+  await renderAboutProfile();
+}
+
+async function syncPortfolioFromCloudAndRender() {
+  if (cloudSync?.pullLatestToLocal) {
+    try {
+      await cloudSync.pullLatestToLocal();
+    } catch (error) {
+      console.error("Cloud sync pull failed on portfolio", error);
+    }
+  }
+
+  await renderPortfolioSections();
+}
 window.addEventListener("storage", (event) => {
   if (event.key === ADMIN_PROJECTS_KEY) {
     importProjects();
@@ -2243,19 +2283,15 @@ window.addEventListener("storage", (event) => {
 });
 
 window.addEventListener("focus", () => {
-  importProjects();
-  renderTestimonials();
-  renderProofProjectCount();
-  renderAboutStory();
-  void renderAboutProfile();
+  void syncPortfolioFromCloudAndRender();
 });
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("iamyotto:cloud-sync-applied", () => {
+  void renderPortfolioSections();
+});
+
+window.addEventListener("DOMContentLoaded", async () => {
   applyStaticTranslations();
-  incrementPortfolioVisits();
-  renderProofProjectCount();
-  renderAboutStory();
-  void renderAboutProfile();
   ensureTestimonialsSeeded();
   setupThemeSwitcher();
   setupMobileNavigation();
@@ -2265,8 +2301,17 @@ window.addEventListener("DOMContentLoaded", () => {
   setupProjectsPagination();
   setupTestimonialForm();
   setupContactForm();
-  renderTestimonials();
-  importProjects();
+
+  if (cloudSync?.ensureRemoteSeededFromLocal) {
+    try {
+      await cloudSync.ensureRemoteSeededFromLocal();
+    } catch (error) {
+      console.error("Cloud sync seed failed on portfolio", error);
+    }
+  }
+
+  await syncPortfolioFromCloudAndRender();
+  incrementPortfolioVisits();
 });
 
 window.addEventListener("beforeunload", () => {

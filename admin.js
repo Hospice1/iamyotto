@@ -137,6 +137,7 @@ const dashboardResetVisitsBtn = document.getElementById("dashboard-reset-visits"
 let editMediaDraft = [];
 const adminBlobUrls = new Set();
 let aboutPreviewBlobUrl = "";
+const cloudSync = window.IamyottoSync || null;
 
 function cloneJSON(value) {
   return JSON.parse(JSON.stringify(value));
@@ -158,6 +159,21 @@ function lockAdmin() {
   }
 }
 
+async function syncAdminStateFromCloud() {
+  if (!cloudSync?.pullLatestToLocal) {
+    return;
+  }
+
+  try {
+    if (cloudSync.ensureRemoteSeededFromLocal) {
+      await cloudSync.ensureRemoteSeededFromLocal();
+    }
+    await cloudSync.pullLatestToLocal();
+  } catch (error) {
+    console.error("Cloud sync pull failed on admin", error);
+  }
+}
+
 async function unlockAdmin() {
   if (loginGate) {
     loginGate.hidden = true;
@@ -166,8 +182,14 @@ async function unlockAdmin() {
     adminApp.hidden = false;
   }
 
+  await syncAdminStateFromCloud();
   await mergeCatalogIntoAdminProjects();
-  await migrateProjectsMediaToIndexedDb();
+
+  if (!cloudSync?.uploadBlob) {
+    await migrateProjectsMediaToIndexedDb();
+  }
+
+  await migrateStoredMediaToCloudUrls();
   purgeSeededCatalogProjects();
   renderProjectList();
   renderHistoryList();
@@ -255,6 +277,7 @@ function loadAboutStory() {
 function saveAboutStory(storyText) {
   try {
     localStorage.setItem(ABOUT_STORY_KEY, JSON.stringify(normalizeAboutStoryText(storyText)));
+    cloudSync?.schedulePush?.();
     return true;
   } catch (error) {
     console.error("Stockage texte a propos plein", error);
@@ -558,6 +581,7 @@ function loadProjects() {
 function saveProjects(projects) {
   try {
     localStorage.setItem(ADMIN_PROJECTS_KEY, JSON.stringify(projects));
+    cloudSync?.schedulePush?.();
     return true;
   } catch (error) {
     console.error("Stockage projets plein", error);
@@ -705,6 +729,147 @@ async function migrateProjectsMediaToIndexedDb() {
   }
 }
 
+
+async function migrateStoredMediaToCloudUrls() {
+  if (!cloudSync?.uploadBlob) {
+    return;
+  }
+
+  const store = getMediaStore();
+  const projects = loadProjects();
+  let projectsChanged = false;
+
+  const uploadMediaToCloud = async (media, fallbackName) => {
+    const normalized = normalizeMediaEntry(media);
+    if (!normalized) {
+      return null;
+    }
+
+    if (normalized.storage === "idb" && normalized.id) {
+      if (!store?.getBlobById) {
+        return normalized;
+      }
+
+      const blob = await store.getBlobById(normalized.id);
+      if (!(blob instanceof Blob)) {
+        return normalized;
+      }
+
+      const mediaType = normalized.type === "video" ? "video" : "image";
+      const uploadedSrc = await cloudSync.uploadBlob(blob, {
+        fileName: normalized.name || fallbackName || (mediaType + "-" + Date.now()),
+        mediaType,
+      });
+
+      return normalizeMediaEntry({
+        src: uploadedSrc,
+        type: mediaType,
+      });
+    }
+
+    const src = String(normalized.src || "");
+    if (!src.startsWith("data:")) {
+      return normalized;
+    }
+
+    const blob = await dataUrlToBlob(src);
+    const mediaType = normalized.type === "video" ? "video" : "image";
+    const uploadedSrc = await cloudSync.uploadBlob(blob, {
+      fileName: fallbackName || (mediaType + "-" + Date.now()),
+      mediaType,
+    });
+
+    return normalizeMediaEntry({
+      src: uploadedSrc,
+      type: mediaType,
+    });
+  };
+
+  for (const project of projects) {
+    const medias = Array.isArray(project.medias) ? project.medias : [];
+    const nextMedias = [];
+
+    for (let mediaIndex = 0; mediaIndex < medias.length; mediaIndex += 1) {
+      const media = medias[mediaIndex];
+      const fallbackName = String(project.id || "project") + "-" + String(mediaIndex + 1);
+
+      try {
+        const uploaded = await uploadMediaToCloud(media, fallbackName);
+        if (uploaded) {
+          nextMedias.push(uploaded);
+          if (uploaded.storage !== media?.storage || uploaded.src !== media?.src) {
+            projectsChanged = true;
+          }
+        }
+      } catch (error) {
+        console.error("Migration media projet vers cloud echouee", error);
+        const fallbackMedia = normalizeMediaEntry(media);
+        if (fallbackMedia) {
+          nextMedias.push(fallbackMedia);
+        }
+      }
+    }
+
+    if (!nextMedias.length) {
+      nextMedias.push({ src: project.image || "assets/project-01.jpg", type: "image" });
+    }
+
+    if (JSON.stringify(nextMedias) !== JSON.stringify(project.medias || [])) {
+      project.medias = nextMedias;
+      project.image = String(nextMedias[0]?.src || project.image || "");
+      projectsChanged = true;
+    }
+  }
+
+  if (projectsChanged) {
+    saveProjects(projects);
+  }
+
+  const profile = loadAboutProfile();
+  let nextProfile = normalizeAboutProfile(profile);
+  let profileChanged = false;
+
+  try {
+    if (profile.photoStorage === "idb" && profile.photoId && store?.getBlobById) {
+      const blob = await store.getBlobById(profile.photoId);
+      if (blob instanceof Blob) {
+        const uploadedSrc = await cloudSync.uploadBlob(blob, {
+          fileName: "about-photo",
+          mediaType: "image",
+        });
+
+        nextProfile = normalizeAboutProfile({
+          roleText: profile.roleText,
+          photoStorage: "src",
+          photoId: "",
+          photoSrc: uploadedSrc,
+        });
+        profileChanged = true;
+      }
+    } else if (String(profile.photoSrc || "").startsWith("data:")) {
+      const blob = await dataUrlToBlob(profile.photoSrc);
+      const uploadedSrc = await cloudSync.uploadBlob(blob, {
+        fileName: "about-photo",
+        mediaType: "image",
+      });
+
+      nextProfile = normalizeAboutProfile({
+        roleText: profile.roleText,
+        photoStorage: "src",
+        photoId: "",
+        photoSrc: uploadedSrc,
+      });
+      profileChanged = true;
+    }
+  } catch (error) {
+    console.error("Migration photo a propos vers cloud echouee", error);
+  }
+
+  if (profileChanged) {
+    saveAboutProfile(nextProfile);
+  }
+}
+
 function loadHistory() {
   try {
     const raw = localStorage.getItem(ADMIN_HISTORY_KEY);
@@ -771,6 +936,7 @@ function loadTestimonials() {
 
 function saveTestimonials(testimonials) {
   localStorage.setItem(TESTIMONIALS_KEY, JSON.stringify(testimonials));
+  cloudSync?.schedulePush?.();
 }
 
 function normalizeContactMessage(item) {
@@ -802,6 +968,7 @@ function loadContactMessages() {
 
 function saveContactMessages(messages) {
   localStorage.setItem(CONTACT_MESSAGES_KEY, JSON.stringify(messages));
+  cloudSync?.schedulePush?.();
 }
 
 function loadDashboardProjectCount() {
@@ -816,7 +983,9 @@ function loadDashboardProjectCount() {
 function saveDashboardProjectCount(value) {
   const safe = Math.max(0, Math.floor(Number(value) || 0));
   localStorage.setItem(DASHBOARD_PROJECT_COUNT_KEY, String(safe));
+  cloudSync?.schedulePush?.();
 }
+
 function normalizeAboutProfile(value) {
   const roleText = String(value?.roleText || value?.role || "Designer").trim();
   const storage = String(value?.photoStorage || value?.photo?.storage || "").trim();
@@ -858,6 +1027,7 @@ function loadAboutProfile() {
 function saveAboutProfile(profile) {
   try {
     localStorage.setItem(ABOUT_PROFILE_KEY, JSON.stringify(normalizeAboutProfile(profile)));
+    cloudSync?.schedulePush?.();
     return true;
   } catch (error) {
     console.error("Stockage profil a propos plein", error);
@@ -1258,6 +1428,26 @@ function readFileAsDataURL(file) {
 }
 
 async function filesToMedias(files) {
+  if (cloudSync?.uploadBlob) {
+    try {
+      const medias = await Promise.all(
+        files.map(async (file) => {
+          const type = String(file.type || "").startsWith("video/") ? "video" : "image";
+          const src = await cloudSync.uploadBlob(file, {
+            fileName: file.name || (type + "-" + Date.now()),
+            mediaType: type,
+          });
+
+          return normalizeMediaEntry({ src, type });
+        })
+      );
+
+      return medias.filter(Boolean);
+    } catch (error) {
+      console.error("Upload cloud medias echoue, fallback local", error);
+    }
+  }
+
   const store = getMediaStore();
 
   if (store?.saveFile) {
@@ -1713,6 +1903,7 @@ dashboardForm?.addEventListener("submit", (event) => {
 
 dashboardResetVisitsBtn?.addEventListener("click", () => {
   localStorage.setItem(PORTFOLIO_VISITS_KEY, "0");
+  cloudSync?.schedulePush?.();
   renderDashboardPanel();
   pushHistory({
     type: "reset_visits",
@@ -1747,7 +1938,28 @@ aboutProfileForm?.addEventListener("submit", async (event) => {
     }
 
     const store = getMediaStore();
-    if (store?.saveFile) {
+    let photoSaved = false;
+
+    if (cloudSync?.uploadBlob) {
+      try {
+        const uploadedSrc = await cloudSync.uploadBlob(file, {
+          fileName: file.name || "about-photo",
+          mediaType: "image",
+        });
+
+        nextProfile = normalizeAboutProfile({
+          roleText,
+          photoStorage: "src",
+          photoId: "",
+          photoSrc: uploadedSrc,
+        });
+        photoSaved = true;
+      } catch (error) {
+        console.error("Erreur upload cloud photo a propos", error);
+      }
+    }
+
+    if (!photoSaved && store?.saveFile) {
       try {
         const saved = await store.saveFile(file);
         nextProfile = normalizeAboutProfile({
@@ -1769,14 +1981,13 @@ aboutProfileForm?.addEventListener("submit", async (event) => {
             console.warn("Ancienne photo a propos non supprimee", cleanupError);
           }
         }
+        photoSaved = true;
       } catch (error) {
         console.error("Erreur sauvegarde photo a propos", error);
-        if (aboutProfileStatus) {
-          aboutProfileStatus.textContent = "Impossible d'enregistrer cette image.";
-        }
-        return;
       }
-    } else {
+    }
+
+    if (!photoSaved) {
       try {
         const dataUrl = await readFileAsDataURL(file);
         nextProfile = normalizeAboutProfile({
@@ -1865,6 +2076,18 @@ clearAllBtn?.addEventListener("click", () => {
 
 
 window.addEventListener("storage", (event) => {
+  if (event.key === ADMIN_PROJECTS_KEY) {
+    renderProjectList();
+  }
+
+  if (event.key === TESTIMONIALS_KEY) {
+    renderTestimonialList();
+  }
+
+  if (event.key === CONTACT_MESSAGES_KEY) {
+    renderContactMessageList();
+  }
+
   if (event.key === PORTFOLIO_VISITS_KEY || event.key === DASHBOARD_PROJECT_COUNT_KEY) {
     renderDashboardPanel();
   }
@@ -1872,6 +2095,18 @@ window.addEventListener("storage", (event) => {
   if (event.key === ABOUT_PROFILE_KEY || event.key === ABOUT_STORY_KEY) {
     void renderAboutProfileEditor();
   }
+});
+
+window.addEventListener("iamyotto:cloud-sync-applied", () => {
+  if (!isAuthenticated()) {
+    return;
+  }
+
+  renderProjectList();
+  renderTestimonialList();
+  renderContactMessageList();
+  renderDashboardPanel();
+  void renderAboutProfileEditor();
 });
 
 window.addEventListener("beforeunload", () => {
