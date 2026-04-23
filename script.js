@@ -6,6 +6,8 @@ const DASHBOARD_PROJECT_COUNT_KEY = "iamyotto_dashboard_project_count";
 const PORTFOLIO_VISITS_KEY = "iamyotto_portfolio_visits";
 const ABOUT_PROFILE_KEY = "iamyotto_about_profile";
 const ABOUT_STORY_KEY = "iamyotto_about_story";
+const CONTACT_NOTIFY_EMAIL = "yottosotirehospicefredel@gmail.com";
+const CONTACT_NOTIFY_ENDPOINT = `https://formsubmit.co/ajax/${encodeURIComponent(CONTACT_NOTIFY_EMAIL)}`;
 
 const INITIAL_TESTIMONIALS = [
   {
@@ -223,6 +225,7 @@ const TRANSLATIONS = {
     testimonial_thanks: "Thank you, your testimonial has been published.",
     contact_fill_required: "Please fill in all fields.",
     contact_success: "Message sent successfully.",
+    contact_success_no_email: "Message saved, but email notification was not sent.",
     default_category: "Creation",
     default_project_title: "Untitled creation",
     default_role: "Designer",
@@ -327,6 +330,7 @@ const TRANSLATIONS = {
     testimonial_thanks: "Merci, votre temoignage a ete publie.",
     contact_fill_required: "Merci de remplir tous les champs.",
     contact_success: "Envoi reussi",
+    contact_success_no_email: "Message enregistre, mais la notification e-mail n'a pas ete envoyee.",
     default_category: "Creation",
     default_project_title: "Creation sans titre",
     default_role: "Designer",
@@ -908,6 +912,40 @@ function incrementPortfolioVisits() {
   localStorage.setItem(PORTFOLIO_VISITS_KEY, String(safeCurrent + 1));
 }
 
+async function sendContactNotification({ name, email, message }) {
+  try {
+    const response = await fetch(CONTACT_NOTIFY_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        message,
+        _subject: `Nouveau message portfolio - ${name}`,
+        _template: "table",
+        _captcha: "false",
+      }),
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (payload && (payload.success === false || String(payload.success).toLowerCase() === "false")) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Contact email notification failed", error);
+    return false;
+  }
+}
+
 function setupContactForm() {
   if (!(contactForm instanceof HTMLFormElement) || !(contactStatus instanceof HTMLElement)) {
     return;
@@ -916,6 +954,12 @@ function setupContactForm() {
   const setSubmitLabel = (label) => {
     if (contactSubmit instanceof HTMLElement) {
       contactSubmit.textContent = label;
+    }
+  };
+
+  const setSubmitDisabled = (disabled) => {
+    if (contactSubmit instanceof HTMLButtonElement) {
+      contactSubmit.disabled = disabled;
     }
   };
 
@@ -931,9 +975,11 @@ function setupContactForm() {
     if (contactSubmit instanceof HTMLElement && contactSubmit.textContent.trim() === sentLabel()) {
       contactSubmit.textContent = idleLabel();
     }
+
+    setSubmitDisabled(false);
   });
 
-  contactForm.addEventListener("submit", (event) => {
+  contactForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const data = new FormData(contactForm);
@@ -944,6 +990,7 @@ function setupContactForm() {
     if (!name || !email || !message) {
       contactStatus.textContent = t("contact_fill_required");
       contactStatus.classList.remove("is-success");
+      setSubmitDisabled(false);
       setSubmitLabel(idleLabel());
       return;
     }
@@ -959,12 +1006,17 @@ function setupContactForm() {
 
     saveContactMessages(messages);
 
+    setSubmitDisabled(true);
+    const notificationSent = await sendContactNotification({ name, email, message });
+    setSubmitDisabled(false);
+
     contactForm.reset();
-    contactStatus.textContent = t("contact_success");
-    contactStatus.classList.add("is-success");
+    contactStatus.textContent = notificationSent ? t("contact_success") : t("contact_success_no_email");
+    contactStatus.classList.toggle("is-success", notificationSent);
     setSubmitLabel(sentLabel());
   });
 }
+
 function escapeHTML(value) {
   return String(value)
     .replaceAll("&", "&amp;")
