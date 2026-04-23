@@ -12,11 +12,17 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: "Manrope", sans-serif;
   color: var(--ink);
   background: var(--bg);
+  overflow-x: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 h1,
@@ -38,7 +44,7 @@ h3 {
 .admin-shell {
   width: min(100% - 2rem, 980px);
   margin-inline: auto;
-  padding: 1.2rem 0 2rem;
+  padding: calc(1.2rem + env(safe-area-inset-top)) 0 calc(2rem + env(safe-area-inset-bottom));
 }
 
 .login-panel {
@@ -101,6 +107,9 @@ h3 {
 }
 
 .back-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
   border-radius: 999px;
   border: 1px solid rgba(91, 33, 182, 0.26);
@@ -597,5 +606,97 @@ h3 {
 @media (max-width: 760px) {
   .edit-media-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 980px) {
+  .admin-shell {
+    width: min(100% - 1.2rem, 980px);
+  }
+
+  .admin-panel {
+    border-radius: 18px;
+    padding: 0.9rem;
+  }
+
+  .back-link,
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    min-height: 44px;
+  }
+
+  .admin-form input,
+  .admin-form textarea,
+  .dashboard-form input,
+  .about-profile-form input,
+  .about-profile-form textarea,
+  .login-form input {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-actions,
+  .admin-header-actions,
+  .admin-item-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .admin-actions > *,
+  .admin-header-actions > *,
+  .admin-item-actions > *,
+  .edit-btn,
+  .delete-btn,
+  .delete-testimonial-btn,
+  .delete-contact-btn,
+  .order-btn,
+  .restore-history-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .admin-panel-head {
+    align-items: stretch;
+  }
+
+  .admin-panel-head .btn-ghost,
+  .admin-panel-head .btn-danger {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-shell {
+    width: min(100% - 0.8rem, 980px);
+  }
+
+  .login-panel {
+    margin-top: 1rem;
+  }
+
+  .admin-panel {
+    border-radius: 14px;
+    padding: 0.8rem;
+  }
+
+  .admin-header h1,
+  .login-panel h1 {
+    font-size: clamp(1.4rem, 7vw, 2rem);
+  }
+
+  .admin-sub {
+    font-size: 0.95rem;
+  }
+
+  .history-item,
+  .testimonial-admin-item,
+  .contact-message-item {
+    padding: 0.62rem;
+  }
+
+  .edit-media-list {
+    grid-template-columns: 1fr;
   }
 }

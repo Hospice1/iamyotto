@@ -100,6 +100,9 @@ const whatsappMessageClose = document.getElementById("whatsapp-message-close");
 const themeToggle = document.getElementById("theme-toggle");
 const themeMenu = document.getElementById("theme-menu");
 const themeOptions = Array.from(document.querySelectorAll(".theme-option"));
+const siteHeader = document.querySelector(".site-header");
+const siteNav = document.getElementById("site-nav");
+const mobileNavToggle = document.getElementById("mobile-nav-toggle");
 const systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
 const PROJECTS_PER_PAGE = 3;
@@ -137,6 +140,8 @@ const TRANSLATIONS = {
     nav_projects: "Projects",
     nav_proof: "Proof",
     nav_contact: "Contact",
+    nav_toggle_open_aria: "Open navigation menu",
+    nav_toggle_close_aria: "Close navigation menu",
     theme_system: "System",
     theme_light: "Light",
     theme_dark: "Dark",
@@ -239,6 +244,8 @@ const TRANSLATIONS = {
     nav_projects: "Projets",
     nav_proof: "Preuves",
     nav_contact: "Contact",
+    nav_toggle_open_aria: "Ouvrir le menu de navigation",
+    nav_toggle_close_aria: "Fermer le menu de navigation",
     theme_system: "Systeme",
     theme_light: "Clair",
     theme_dark: "Sombre",
@@ -1970,6 +1977,67 @@ function openThemeMenu() {
   themeToggle.setAttribute("aria-expanded", "true");
 }
 
+function setMobileNavExpanded(expanded) {
+  if (!(siteHeader instanceof HTMLElement) || !(mobileNavToggle instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  siteHeader.classList.toggle("is-nav-open", expanded);
+  mobileNavToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+  mobileNavToggle.setAttribute("aria-label", expanded ? t("nav_toggle_close_aria") : t("nav_toggle_open_aria"));
+}
+
+function closeMobileNav() {
+  setMobileNavExpanded(false);
+}
+
+function setupMobileNavigation() {
+  if (!(siteHeader instanceof HTMLElement) || !(siteNav instanceof HTMLElement) || !(mobileNavToggle instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  setMobileNavExpanded(false);
+
+  mobileNavToggle.addEventListener("click", () => {
+    const isExpanded = mobileNavToggle.getAttribute("aria-expanded") === "true";
+    setMobileNavExpanded(!isExpanded);
+  });
+
+  const navLinks = Array.from(siteNav.querySelectorAll('a[href^="#"]'));
+  navLinks.forEach((link) => {
+    link.addEventListener("click", () => {
+      closeMobileNav();
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!siteHeader.classList.contains("is-nav-open")) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+
+    if (!siteHeader.contains(target)) {
+      closeMobileNav();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeMobileNav();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 980) {
+      closeMobileNav();
+    }
+  });
+}
+
 function setupThemeSwitcher() {
   if (!themeToggle || !themeMenu || !themeOptions.length) {
     return;
@@ -2137,6 +2205,7 @@ window.addEventListener("DOMContentLoaded", () => {
   void renderAboutProfile();
   ensureTestimonialsSeeded();
   setupThemeSwitcher();
+  setupMobileNavigation();
   setupScrollReveal();
   setupActiveNav();
   setupWhatsappWidget();
