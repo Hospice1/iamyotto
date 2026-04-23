@@ -166,6 +166,7 @@ async function unlockAdmin() {
     adminApp.hidden = false;
   }
 
+  await mergeCatalogIntoAdminProjects();
   await migrateProjectsMediaToIndexedDb();
   purgeSeededCatalogProjects();
   renderProjectList();
@@ -425,6 +426,11 @@ function isSeedCatalogProject(project) {
 function purgeSeededCatalogProjects() {
   const projects = loadProjects();
   if (!projects.length) {
+    return projects;
+  }
+
+  const hasCustomProjects = projects.some((project) => !isSeedCatalogProject(project));
+  if (!hasCustomProjects) {
     return projects;
   }
 

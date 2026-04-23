@@ -1,9 +1,48 @@
-﻿{
+{
   "source": {
     "type": "whatsapp",
     "catalog_url": "https://wa.me/c/22940175015",
-    "products": []
+    "products": [
+      {
+        "titre": "Brand Identity Pack",
+        "description": "Complete visual identity creation: logo, color palette, typography and social media kit.",
+        "image": "assets/project-01.jpg",
+        "categorie": "Branding"
+      },
+      {
+        "titre": "Design Social Media Premium",
+        "description": "High-end social media templates designed to convert and strengthen your brand image.",
+        "image": "assets/project-02.png",
+        "categorie": "Social Media"
+      },
+      {
+        "titre": "Portfolio / Landing Page Design",
+        "description": "Minimal interface concept focused on clarity, impact and user experience.",
+        "image": "assets/project-03.jpg",
+        "categorie": "Web Design",
+        "websiteUrl": "https://iamyotto.vercel.app"
+      }
+    ]
   },
-  "products": []
+  "products": [
+    {
+      "titre": "Brand Identity Pack",
+      "description": "Complete visual identity creation: logo, color palette, typography and social media kit.",
+      "image": "assets/project-01.jpg",
+      "categorie": "Branding"
+    },
+    {
+      "titre": "Design Social Media Premium",
+      "description": "High-end social media templates designed to convert and strengthen your brand image.",
+      "image": "assets/project-02.png",
+      "categorie": "Social Media"
+    },
+    {
+      "titre": "Portfolio / Landing Page Design",
+      "description": "Minimal interface concept focused on clarity, impact and user experience.",
+      "image": "assets/project-03.jpg",
+      "categorie": "Web Design",
+      "websiteUrl": "https://iamyotto.vercel.app"
+    }
+  ]
 }
-

@@ -2098,12 +2098,13 @@ function setupThemeSwitcher() {
   const initialChoice = getStoredThemeChoice();
   applyTheme(initialChoice);
 
+  closeThemeMenu();
   themeToggle.addEventListener("click", () => {
-    if (themeMenu.hidden) {
-      openThemeMenu();
-    } else {
-      closeThemeMenu();
-    }
+    const currentResolved = resolveThemeChoice(getStoredThemeChoice());
+    const nextChoice = currentResolved === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_STORAGE_KEY, nextChoice);
+    applyTheme(nextChoice);
+    closeThemeMenu();
   });
 
   themeOptions.forEach((option) => {
