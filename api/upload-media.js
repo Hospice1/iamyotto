@@ -120,17 +120,20 @@ module.exports = async function handler(req, res) {
     const mimeType = String(body?.mimeType || parsedData.mimeType || "application/octet-stream").toLowerCase();
 
     const blob = await put(pathname, parsedData.buffer, {
-      access: "public",
+      access: "private",
       contentType: mimeType,
       addRandomSuffix: false,
       cacheControlMaxAge: 31536000,
     });
 
+    const mediaUrl = String(blob.downloadUrl || blob.url || "");
+
     return sendJson(res, 200, {
       ok: true,
-      url: blob.url,
+      url: mediaUrl,
       pathname: blob.pathname,
       downloadUrl: blob.downloadUrl,
+      blobUrl: blob.url,
     });
   } catch (error) {
     console.error("upload-media failed", error);
