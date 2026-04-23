@@ -1,6 +1,7 @@
 const { get, put } = require("@vercel/blob");
 
 const STATE_PATHNAME = "sync/state.json";
+const SYNC_BLOB_TOKEN = process.env.BLOB_SYNC_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -40,7 +41,7 @@ async function parseJsonBody(req) {
 }
 
 async function readRemoteStatePayload() {
-  const result = await get(STATE_PATHNAME, { access: "private" });
+  const result = await get(STATE_PATHNAME, { access: "private", token: SYNC_BLOB_TOKEN });
   if (!result || result.statusCode !== 200 || !result.stream) {
     return {
       version: 1,
@@ -107,6 +108,7 @@ module.exports = async function handler(req, res) {
 
       await put(STATE_PATHNAME, JSON.stringify(payloadToStore), {
         access: "private",
+        token: SYNC_BLOB_TOKEN,
         contentType: "application/json",
         addRandomSuffix: false,
         allowOverwrite: true,

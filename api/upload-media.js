@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { put } = require("@vercel/blob");
 
 const MAX_UPLOAD_BYTES = 3800000;
+const MEDIA_BLOB_TOKEN = process.env.BLOB_MEDIA_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -120,20 +121,18 @@ module.exports = async function handler(req, res) {
     const mimeType = String(body?.mimeType || parsedData.mimeType || "application/octet-stream").toLowerCase();
 
     const blob = await put(pathname, parsedData.buffer, {
-      access: "private",
+      access: "public",
+      token: MEDIA_BLOB_TOKEN,
       contentType: mimeType,
       addRandomSuffix: false,
       cacheControlMaxAge: 31536000,
     });
 
-    const mediaUrl = String(blob.downloadUrl || blob.url || "");
-
     return sendJson(res, 200, {
       ok: true,
-      url: mediaUrl,
+      url: blob.url,
       pathname: blob.pathname,
       downloadUrl: blob.downloadUrl,
-      blobUrl: blob.url,
     });
   } catch (error) {
     console.error("upload-media failed", error);
