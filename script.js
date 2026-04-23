@@ -716,9 +716,7 @@ function loadAdminProjects() {
     }
 
     const parsed = JSON.parse(raw);
-    const safeList = Array.isArray(parsed)
-      ? parsed.filter((project) => !isSeedCatalogProject(project))
-      : [];
+    const safeList = Array.isArray(parsed) ? parsed : [];
     return normalizeProjectsArray(safeList);
   } catch (error) {
     console.error("Erreur de lecture des projets admin", error);
@@ -741,6 +739,10 @@ function normalizeTestimonial(item) {
 function ensureTestimonialsSeeded() {
   const raw = localStorage.getItem(TESTIMONIALS_KEY);
   if (raw) {
+    return;
+  }
+
+  if (cloudSync?.pullLatestToLocal) {
     return;
   }
 

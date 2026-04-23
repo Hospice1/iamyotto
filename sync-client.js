@@ -36,28 +36,6 @@
     }
   }
 
-  function readAboutStoryFromLocal() {
-    const raw = localStorage.getItem(ABOUT_STORY_KEY);
-    if (!raw) {
-      return "";
-    }
-
-    const parsed = parseJSON(raw, raw);
-    if (typeof parsed === "string") {
-      return parsed;
-    }
-
-    if (parsed && typeof parsed.story === "string") {
-      return parsed.story;
-    }
-
-    return String(raw);
-  }
-
-  function writeAboutStoryToLocal(storyText) {
-    localStorage.setItem(ABOUT_STORY_KEY, JSON.stringify(String(storyText || "")));
-  }
-
   function readSyncMeta() {
     return toSafeInt(localStorage.getItem(SYNC_META_KEY), 0);
   }
@@ -66,16 +44,92 @@
     localStorage.setItem(SYNC_META_KEY, String(toSafeInt(updatedAt, 0)));
   }
 
+  function readArrayIfPresent(storageKey) {
+    const raw = localStorage.getItem(storageKey);
+    if (raw === null) {
+      return undefined;
+    }
+
+    const parsed = parseJSON(raw, []);
+    return Array.isArray(parsed) ? parsed : [];
+  }
+
+  function readObjectIfPresent(storageKey) {
+    const raw = localStorage.getItem(storageKey);
+    if (raw === null) {
+      return undefined;
+    }
+
+    const parsed = parseJSON(raw, {});
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+
+    return parsed;
+  }
+
+  function readAboutStoryFromLocal() {
+    const raw = localStorage.getItem(ABOUT_STORY_KEY);
+    if (raw === null) {
+      return undefined;
+    }
+
+    const parsed = parseJSON(raw, raw);
+    if (typeof parsed === "string") {
+      const safe = parsed.trim();
+      return safe || undefined;
+    }
+
+    if (parsed && typeof parsed.story === "string") {
+      const safe = String(parsed.story).trim();
+      return safe || undefined;
+    }
+
+    const fallback = String(raw || "").trim();
+    return fallback || undefined;
+  }
+
+  function writeAboutStoryToLocal(storyText) {
+    localStorage.setItem(ABOUT_STORY_KEY, JSON.stringify(String(storyText || "")));
+  }
+
   function buildSharedStateSnapshot() {
-    return {
-      projects: parseJSON(localStorage.getItem(ADMIN_PROJECTS_KEY), []),
-      testimonials: parseJSON(localStorage.getItem(TESTIMONIALS_KEY), []),
-      contactMessages: parseJSON(localStorage.getItem(CONTACT_MESSAGES_KEY), []),
-      dashboardProjectCount: toSafeInt(localStorage.getItem(DASHBOARD_PROJECT_COUNT_KEY), 100),
-      portfolioVisits: toSafeInt(localStorage.getItem(PORTFOLIO_VISITS_KEY), 0),
-      aboutProfile: parseJSON(localStorage.getItem(ABOUT_PROFILE_KEY), {}),
-      aboutStory: readAboutStoryFromLocal(),
-    };
+    const snapshot = {};
+
+    const projects = readArrayIfPresent(ADMIN_PROJECTS_KEY);
+    if (Array.isArray(projects)) {
+      snapshot.projects = projects;
+    }
+
+    const testimonials = readArrayIfPresent(TESTIMONIALS_KEY);
+    if (Array.isArray(testimonials)) {
+      snapshot.testimonials = testimonials;
+    }
+
+    const contactMessages = readArrayIfPresent(CONTACT_MESSAGES_KEY);
+    if (Array.isArray(contactMessages)) {
+      snapshot.contactMessages = contactMessages;
+    }
+
+    if (localStorage.getItem(DASHBOARD_PROJECT_COUNT_KEY) !== null) {
+      snapshot.dashboardProjectCount = toSafeInt(localStorage.getItem(DASHBOARD_PROJECT_COUNT_KEY), 100);
+    }
+
+    if (localStorage.getItem(PORTFOLIO_VISITS_KEY) !== null) {
+      snapshot.portfolioVisits = toSafeInt(localStorage.getItem(PORTFOLIO_VISITS_KEY), 0);
+    }
+
+    const aboutProfile = readObjectIfPresent(ABOUT_PROFILE_KEY);
+    if (aboutProfile && typeof aboutProfile === "object") {
+      snapshot.aboutProfile = aboutProfile;
+    }
+
+    const aboutStory = readAboutStoryFromLocal();
+    if (typeof aboutStory === "string" && aboutStory.trim()) {
+      snapshot.aboutStory = aboutStory;
+    }
+
+    return snapshot;
   }
 
   function applySharedStateSnapshot(state) {
@@ -113,9 +167,66 @@
       localStorage.setItem(ABOUT_PROFILE_KEY, JSON.stringify(state.aboutProfile));
     }
 
-    if (typeof state.aboutStory === "string") {
+    if (typeof state.aboutStory === "string" && state.aboutStory.trim()) {
       writeAboutStoryToLocal(state.aboutStory);
     }
+  }
+
+  function mergeUniqueArrays(primary, secondary) {
+    const merged = [];
+    const seen = new Set();
+
+    [primary, secondary].forEach((list) => {
+      if (!Array.isArray(list)) {
+        return;
+      }
+
+      list.forEach((item) => {
+        const key = JSON.stringify(item);
+        if (seen.has(key)) {
+          return;
+        }
+        seen.add(key);
+        merged.push(item);
+      });
+    });
+
+    return merged;
+  }
+
+  function isLikelyCatalogSeed(project) {
+    const ref = String(project?.catalogRef || "").trim().toLowerCase();
+    if (ref.startsWith("catalog:") || ref.startsWith("whatsapp:")) {
+      return true;
+    }
+
+    const title = String(project?.title || project?.titre || "").trim().toLowerCase();
+    const category = String(project?.category || project?.categorie || "").trim().toLowerCase();
+    const firstSrc = String(project?.medias?.[0]?.src || project?.image || "").trim().toLowerCase();
+
+    const isLegacySeed = (
+      (title === "brand identity pack" && category === "branding")
+      || (title === "design social media premium" && category === "social media")
+      || (title === "portfolio / landing page design" && category === "web design")
+    ) && (
+      firstSrc.endsWith("assets/project-01.jpg")
+      || firstSrc.endsWith("assets/project-02.png")
+      || firstSrc.endsWith("assets/project-03.jpg")
+    );
+
+    return isLegacySeed;
+  }
+
+  function hasCustomProjects(projects) {
+    if (!Array.isArray(projects) || !projects.length) {
+      return false;
+    }
+
+    return projects.some((project) => !isLikelyCatalogSeed(project));
+  }
+
+  function hasNonEmptyAboutStory(state) {
+    return typeof state?.aboutStory === "string" && state.aboutStory.trim().length > 0;
   }
 
   async function requestRemoteState() {
@@ -166,6 +277,10 @@
     const snapshot = options.state && typeof options.state === "object"
       ? options.state
       : buildSharedStateSnapshot();
+
+    if (!snapshot || !Object.keys(snapshot).length) {
+      return false;
+    }
 
     const baseUpdatedAt = typeof options.baseUpdatedAt === "number"
       ? toSafeInt(options.baseUpdatedAt, 0)
@@ -317,36 +432,24 @@
     const localProjects = Array.isArray(localState.projects) ? localState.projects : [];
     const remoteProjects = Array.isArray(remoteState.projects) ? remoteState.projects : [];
 
-    if (!localProjects.length || remoteProjects.length > 0) {
+    const localHasCustom = hasCustomProjects(localProjects);
+    const remoteHasCustom = hasCustomProjects(remoteProjects);
+
+    const shouldPromoteLocal = (
+      (remote.updatedAt === 0 && localProjects.length > 0)
+      || (localHasCustom && !remoteHasCustom)
+      || (localHasCustom && localProjects.length > remoteProjects.length)
+      || (hasNonEmptyAboutStory(localState) && !hasNonEmptyAboutStory(remoteState))
+    );
+
+    if (!shouldPromoteLocal) {
       return false;
     }
-
-    const mergeUniqueArrays = (primary, secondary) => {
-      const merged = [];
-      const seen = new Set();
-
-      [primary, secondary].forEach((list) => {
-        if (!Array.isArray(list)) {
-          return;
-        }
-
-        list.forEach((item) => {
-          const key = JSON.stringify(item);
-          if (seen.has(key)) {
-            return;
-          }
-          seen.add(key);
-          merged.push(item);
-        });
-      });
-
-      return merged;
-    };
 
     const mergedState = {
       ...remoteState,
       ...localState,
-      projects: localProjects,
+      projects: localProjects.length ? localProjects : remoteProjects,
       testimonials: mergeUniqueArrays(localState.testimonials, remoteState.testimonials),
       contactMessages: mergeUniqueArrays(localState.contactMessages, remoteState.contactMessages),
       portfolioVisits: Math.max(
@@ -354,6 +457,10 @@
         toSafeInt(remoteState.portfolioVisits, 0)
       ),
     };
+
+    if (!hasNonEmptyAboutStory(localState)) {
+      delete mergedState.aboutStory;
+    }
 
     const remoteUpdatedAt = toSafeInt(remote.updatedAt, 0);
     const nextUpdatedAt = Date.now();

@@ -183,14 +183,12 @@ async function unlockAdmin() {
   }
 
   await syncAdminStateFromCloud();
-  await mergeCatalogIntoAdminProjects();
 
   if (!cloudSync?.uploadBlob) {
     await migrateProjectsMediaToIndexedDb();
   }
 
   await migrateStoredMediaToCloudUrls();
-  purgeSeededCatalogProjects();
   renderProjectList();
   renderHistoryList();
   renderTestimonialList();
@@ -533,6 +531,10 @@ function normalizeTestimonial(item) {
 
 function ensureTestimonialsSeeded() {
   if (localStorage.getItem(TESTIMONIALS_KEY)) {
+    return;
+  }
+
+  if (cloudSync?.pullLatestToLocal) {
     return;
   }
 

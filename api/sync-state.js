@@ -100,10 +100,19 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      const currentState = current && current.state && typeof current.state === "object"
+        ? current.state
+        : {};
+
+      const mergedState = {
+        ...currentState,
+        ...nextState,
+      };
+
       const payloadToStore = {
         version: 1,
         updatedAt: nextUpdatedAt,
-        state: nextState,
+        state: mergedState,
       };
 
       await put(STATE_PATHNAME, JSON.stringify(payloadToStore), {
